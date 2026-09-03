@@ -1,101 +1,203 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { GameRoomState, ClientMessage, ServerMessage, Player, CategoryId, GameSettings } from '../types';
+import {
+  getLocalRoomState,
+  localJoin,
+  dispatchLocalAction,
+  subscribeLocalEngine,
+} from '../utils/localGameEngine';
+
+function resolveWsUrl(serverUrl: string): string {
+  if (serverUrl) {
+    const clean = serverUrl.trim().replace(/\/+$/, '');
+    if (clean.startsWith('https://')) {
+      return clean.replace(/^https:\/\//, 'wss://') + '/ws';
+    }
+    if (clean.startsWith('http://')) {
+      return clean.replace(/^http:\/\//, 'ws://') + '/ws';
+    }
+    return `wss://${clean}/ws`;
+  }
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
+  return `${protocol}//${host}/ws`;
+}
+
+function resolveHttpUrl(serverUrl: string, endpoint: string): string {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (serverUrl) {
+    const cleanBase = serverUrl.trim().replace(/\/+$/, '');
+    return `${cleanBase}${cleanEndpoint}`;
+  }
+  return cleanEndpoint;
+}
 
 export function useGameSocket() {
   const socketRef = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [serverUrl, setServerUrlState] = useState<string>(() => {
+    return localStorage.getItem('efl_server_url') || (import.meta.env.VITE_SERVER_URL as string) || '';
+  });
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [isLocalMode, setIsLocalMode] = useState(false);
   const [roomState, setRoomState] = useState<GameRoomState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(() => {
     return localStorage.getItem('efl_player_id') || null;
   });
   const [error, setError] = useState<string | null>(null);
 
+  const setServerUrl = useCallback((url: string) => {
+    const clean = url.trim();
+    setServerUrlState(clean);
+    if (clean) {
+      localStorage.setItem('efl_server_url', clean);
+    } else {
+      localStorage.removeItem('efl_server_url');
+    }
+    // Close existing socket so connect() will reconnect with new url
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    setIsLiveConnected(false);
+  }, []);
+
+  const testServerConnection = useCallback(async (): Promise<boolean> => {
+    try {
+      const url = resolveHttpUrl(serverUrl, '/api/health');
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, [serverUrl]);
+
   // Fetch state via REST fallback
   const fetchRoomState = useCallback(async (code: string = 'EFL1') => {
     try {
       const storedPlayerId = localStorage.getItem('efl_player_id');
-      const url = `/api/room/${encodeURIComponent(code)}${storedPlayerId ? `?playerId=${storedPlayerId}` : ''}`;
-      const res = await fetch(url);
+      const url = resolveHttpUrl(
+        serverUrl,
+        `/api/room/${encodeURIComponent(code)}${storedPlayerId ? `?playerId=${storedPlayerId}` : ''}`
+      );
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const data = await res.json();
         if (data.state) {
           setRoomState(data.state);
+          setIsLocalMode(false);
+          return true;
         }
       }
     } catch {
       // Benign network fallback failure
     }
-  }, []);
+    return false;
+  }, [serverUrl]);
 
   const connect = useCallback(() => {
     if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    try {
+      const wsUrl = resolveWsUrl(serverUrl);
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
 
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-
-      // Attempt reconnection if previous session exists
-      const savedPlayerId = localStorage.getItem('efl_player_id');
-      const savedRoomCode = localStorage.getItem('efl_room_code') || 'EFL1';
-      if (savedPlayerId) {
-        ws.send(JSON.stringify({
-          type: 'RECONNECT',
-          roomCode: savedRoomCode,
-          playerId: savedPlayerId,
-        }));
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg: ServerMessage = JSON.parse(event.data);
-        if (msg.type === 'ROOM_STATE') {
-          setRoomState(msg.state);
-        } else if (msg.type === 'JOIN_SUCCESS') {
-          setMyPlayerId(msg.playerId);
-          localStorage.setItem('efl_player_id', msg.playerId);
-          localStorage.setItem('efl_room_code', msg.state.code);
-          setRoomState(msg.state);
-        } else if (msg.type === 'ERROR') {
-          setError(msg.message);
+      const connectionTimeout = setTimeout(() => {
+        // If socket hasn't connected in 2.5 seconds, activate local engine fallback
+        if (!isLiveConnected && ws.readyState !== WebSocket.OPEN) {
+          setIsLocalMode(true);
+          setRoomState(getLocalRoomState());
         }
-      } catch (err) {
-        console.error('Failed to parse WS message:', err);
-      }
-    };
+      }, 2500);
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      // Auto-reconnect after 2 seconds
-      setTimeout(() => {
-        connect();
-      }, 2000);
-    };
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        setIsLiveConnected(true);
+        setIsLocalMode(false);
+        setError(null);
 
-    ws.onerror = () => {
-      setIsConnected(false);
-    };
-  }, []);
+        // Attempt reconnection if previous session exists
+        const savedPlayerId = localStorage.getItem('efl_player_id');
+        const savedRoomCode = localStorage.getItem('efl_room_code') || 'EFL1';
+        if (savedPlayerId) {
+          ws.send(JSON.stringify({
+            type: 'RECONNECT',
+            roomCode: savedRoomCode,
+            playerId: savedPlayerId,
+          }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg: ServerMessage = JSON.parse(event.data);
+          if (msg.type === 'ROOM_STATE') {
+            setRoomState(msg.state);
+          } else if (msg.type === 'JOIN_SUCCESS') {
+            setMyPlayerId(msg.playerId);
+            localStorage.setItem('efl_player_id', msg.playerId);
+            localStorage.setItem('efl_room_code', msg.state.code);
+            setRoomState(msg.state);
+          } else if (msg.type === 'ERROR') {
+            setError(msg.message);
+          }
+        } catch (err) {
+          console.error('Failed to parse WS message:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        setIsLiveConnected(false);
+        // Fallback to local mode if no backend is reachable
+        setIsLocalMode(true);
+        setRoomState(getLocalRoomState());
+
+        // Auto-reconnect after 3 seconds
+        setTimeout(() => {
+          connect();
+        }, 3000);
+      };
+
+      ws.onerror = () => {
+        setIsLiveConnected(false);
+        setIsLocalMode(true);
+        setRoomState(getLocalRoomState());
+      };
+    } catch {
+      setIsLiveConnected(false);
+      setIsLocalMode(true);
+      setRoomState(getLocalRoomState());
+    }
+  }, [serverUrl, isLiveConnected]);
+
+  // Subscribe to local engine state changes when in local mode
+  useEffect(() => {
+    if (isLocalMode) {
+      const unsubscribe = subscribeLocalEngine((updatedState) => {
+        setRoomState(updatedState);
+      });
+      return unsubscribe;
+    }
+  }, [isLocalMode]);
 
   // Initialize connection and periodic ping/fetch
   useEffect(() => {
-    fetchRoomState();
+    fetchRoomState().then((ok) => {
+      if (!ok) {
+        setIsLocalMode(true);
+        setRoomState(getLocalRoomState());
+      }
+    });
+
     connect();
 
-    // Client-to-server heartbeat ping every 20 seconds
+    // Heartbeat ping every 20 seconds
     const pingInterval = setInterval(() => {
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         socketRef.current.send(JSON.stringify({ type: 'PING' }));
-      } else {
-        // If socket is down, poll room state to keep UI in sync
+      } else if (!isLocalMode) {
         const currentCode = localStorage.getItem('efl_room_code') || 'EFL1';
         fetchRoomState(currentCode);
       }
@@ -107,16 +209,20 @@ export function useGameSocket() {
         socketRef.current.close();
       }
     };
-  }, [connect, fetchRoomState]);
+  }, [connect, fetchRoomState, isLocalMode]);
 
   const send = useCallback(async (msg: ClientMessage) => {
+    // If live WebSocket is connected
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(msg));
-    } else {
-      // Fallback to REST action API if socket is not open
+      return;
+    }
+
+    // Try HTTP fallback if not exclusively in local mode
+    if (!isLocalMode) {
       try {
         const targetRoom = 'roomCode' in msg ? msg.roomCode : (roomState?.code || 'EFL1');
-        const res = await fetch('/api/room/action', {
+        const res = await fetch(resolveHttpUrl(serverUrl, '/api/room/action'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -129,13 +235,20 @@ export function useGameSocket() {
           const data = await res.json();
           if (data.state) {
             setRoomState(data.state);
+            return;
           }
         }
-      } catch (err) {
-        console.error('HTTP action fallback error:', err);
+      } catch {
+        // Fall back to local engine below
       }
     }
-  }, [myPlayerId, roomState?.code]);
+
+    // Local in-browser host engine fallback
+    if (myPlayerId) {
+      const updated = dispatchLocalAction(myPlayerId, msg);
+      setRoomState(updated);
+    }
+  }, [isLocalMode, myPlayerId, roomState?.code, serverUrl]);
 
   const joinRoom = useCallback(async (
     roomCode: string,
@@ -147,7 +260,7 @@ export function useGameSocket() {
     const cleanCode = (roomCode.trim() || 'EFL1').toUpperCase();
     const storedPlayerId = localStorage.getItem('efl_player_id') || undefined;
 
-    // Send through WebSocket if available
+    // 1. If WebSocket is connected, send JOIN_ROOM
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
         type: 'JOIN_ROOM',
@@ -160,9 +273,10 @@ export function useGameSocket() {
       }));
     }
 
-    // Also call REST join immediately as a reliable fallback/acceleration
+    // 2. Try REST join endpoint
+    let restSuccess = false;
     try {
-      const res = await fetch('/api/room/join', {
+      const res = await fetch(resolveHttpUrl(serverUrl, '/api/room/join'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,12 +297,24 @@ export function useGameSocket() {
         }
         if (data.state) {
           setRoomState(data.state);
+          setIsLocalMode(false);
+          restSuccess = true;
         }
       }
-    } catch (err) {
-      console.error('REST join error:', err);
+    } catch {
+      restSuccess = false;
     }
-  }, []);
+
+    // 3. If neither WS nor REST responded, run in local classroom mode!
+    if (!restSuccess && (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN)) {
+      setIsLocalMode(true);
+      const { player, state } = localJoin(cleanCode, name, avatar, favoriteColor, isTeacher, storedPlayerId);
+      setMyPlayerId(player.id);
+      localStorage.setItem('efl_player_id', player.id);
+      localStorage.setItem('efl_room_code', cleanCode);
+      setRoomState(state);
+    }
+  }, [serverUrl]);
 
   const startGame = useCallback((roomCode: string) => {
     send({ type: 'START_GAME', roomCode });
@@ -238,11 +364,16 @@ export function useGameSocket() {
     send({ type: 'RESET_GAME', roomCode });
   }, [send]);
 
-  // Identify current player
+  // Current player identification
   const myPlayer: Player | undefined = roomState && myPlayerId ? roomState.players[myPlayerId] : undefined;
 
   return {
-    isConnected,
+    isConnected: isLiveConnected || isLocalMode,
+    isLiveConnected,
+    isLocalMode,
+    serverUrl,
+    setServerUrl,
+    testServerConnection,
     roomState,
     myPlayerId,
     setMyPlayerId,

@@ -364,7 +364,7 @@ function handleJoin(
     score: 0,
     previousRank: 0,
     currentRank: Object.keys(room.state.players).length + 1,
-    isPresenter: room.state.presenterId === null,
+    isPresenter: playerIsTeacher || room.state.presenterId === null,
     isTeacher: Boolean(playerIsTeacher),
     connected: true,
     currentGuess: null,
@@ -372,7 +372,7 @@ function handleJoin(
     roundScore: 0,
   };
 
-  if (room.state.presenterId === null) {
+  if (playerIsTeacher || room.state.presenterId === null) {
     room.state.presenterId = playerId;
   }
 
@@ -405,8 +405,8 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
         p.roundScore = 0;
       });
 
-      // Ensure a valid presenter exists
-      if (!room.state.presenterId || !room.state.players[room.state.presenterId]) {
+      // Default the presenter to the teacher/host who started the game
+      if (player?.isTeacher || !room.state.presenterId || !room.state.players[room.state.presenterId]) {
         room.state.presenterId = playerId;
       }
       Object.values(room.state.players).forEach(p => {
@@ -418,8 +418,22 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'PRESENTER_CHOICE': {
-      if (playerId !== room.state.presenterId) return;
+      // Allow presenter OR teacher/host to lock in the secret choice
+      const isAuthorized = playerId === room.state.presenterId || player?.isTeacher;
+      if (!isAuthorized) return;
       if (room.state.stage !== 'PRESENTER_SELECTING') return;
+
+      // If the teacher/host chooses, update presenter to them if it wasn't already
+      if (player?.isTeacher && room.state.presenterId !== playerId) {
+        room.state.presenterId = playerId;
+        Object.values(room.state.players).forEach(p => {
+          p.isPresenter = p.id === playerId;
+        });
+      }
+
+      if (room.botPresenterTimeout) {
+        clearTimeout(room.botPresenterTimeout);
+      }
 
       room.state.presenterChoice = msg.optionId;
       startClassGuessingPhase(room);

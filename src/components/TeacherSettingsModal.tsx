@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles } from 'lucide-react';
+import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server } from 'lucide-react';
 import { GameRoomState, CategoryId, Player } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -15,6 +15,7 @@ interface TeacherSettingsModalProps {
   onRemoveBots: () => void;
   onResetGame: () => void;
   onJumpToCategory: (catId: CategoryId) => void;
+  onOpenServerModal?: () => void;
 }
 
 export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
@@ -28,6 +29,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
   onRemoveBots,
   onResetGame,
   onJumpToCategory,
+  onOpenServerModal,
 }) => {
   if (!isOpen) return null;
 
@@ -202,6 +204,30 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             })}
           </div>
         </div>
+
+        {/* Multiplayer Backend Server Section */}
+        {onOpenServerModal && (
+          <div className="p-4 rounded-2xl bg-slate-800/60 border border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                <Server className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">Multiplayer Server Setup</div>
+                <div className="text-[11px] text-slate-400">Configure Render/Railway backend for cross-device play on Vercel</div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                onClose();
+                onOpenServerModal();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer"
+            >
+              Configure
+            </button>
+          </div>
+        )}
 
         {/* Practice Bots & Reset Actions */}
         <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">

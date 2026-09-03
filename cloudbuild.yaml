@@ -1,0 +1,30 @@
+# Google Cloud Build deployment pipeline for Cloud Run
+steps:
+  # Build Docker container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/efl-game', '.']
+  
+  # Push image to Container / Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/efl-game']
+  
+  # Deploy service to Cloud Run with WebSocket support & session affinity
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'efl-game'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/efl-game'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '3000'
+      - '--allow-unauthenticated'
+      - '--session-affinity'
+
+images:
+  - 'gcr.io/$PROJECT_ID/efl-game'

@@ -8,12 +8,18 @@ import { RevealView } from './components/RevealView';
 import { ScoreboardView } from './components/ScoreboardView';
 import { GameOverView } from './components/GameOverView';
 import { TeacherSettingsModal } from './components/TeacherSettingsModal';
-import { WifiOff, AlertCircle } from 'lucide-react';
+import { ServerConnectionModal } from './components/ServerConnectionModal';
+import { WifiOff, AlertCircle, Server } from 'lucide-react';
 import { CategoryId } from './types';
 
 export default function App() {
   const {
     isConnected,
+    isLiveConnected,
+    isLocalMode,
+    serverUrl,
+    setServerUrl,
+    testServerConnection,
     roomState,
     myPlayer,
     error,
@@ -33,6 +39,7 @@ export default function App() {
   } = useGameSocket();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
 
   // Active room code helper
   const roomCode = roomState?.code || 'EFL1';
@@ -45,6 +52,9 @@ export default function App() {
         roomState={roomState}
         myPlayer={myPlayer}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        isLiveConnected={isLiveConnected}
+        isLocalMode={isLocalMode}
+        onOpenServerModal={() => setIsServerModalOpen(true)}
       />
 
       {/* Connection State Alert */}
@@ -52,6 +62,19 @@ export default function App() {
         <div className="bg-amber-500/90 text-amber-950 px-4 py-2 text-xs font-black uppercase tracking-wider text-center flex items-center justify-center gap-2 border-b border-amber-400/30">
           <WifiOff className="w-4 h-4 shrink-0" />
           <span>Connecting to classroom server... (reconnecting automatically)</span>
+        </div>
+      )}
+
+      {isLocalMode && (
+        <div className="bg-indigo-950/80 text-indigo-300 px-4 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-2 border-b border-indigo-500/20">
+          <Server className="w-3.5 h-3.5 text-indigo-400" />
+          <span>In-Browser Classroom Host Mode is active. Single-screen and projector ready.</span>
+          <button
+            onClick={() => setIsServerModalOpen(true)}
+            className="underline font-bold text-white hover:text-indigo-200 cursor-pointer ml-1"
+          >
+            Connect external server for multi-device play &rarr;
+          </button>
         </div>
       )}
 
@@ -171,8 +194,20 @@ export default function App() {
           onRemoveBots={() => removeDemoBots(roomCode)}
           onResetGame={() => resetGame(roomCode)}
           onJumpToCategory={(catId: CategoryId) => nextRound(roomCode, catId)}
+          onOpenServerModal={() => setIsServerModalOpen(true)}
         />
       )}
+
+      {/* Multiplayer Server Connection Modal */}
+      <ServerConnectionModal
+        isOpen={isServerModalOpen}
+        onClose={() => setIsServerModalOpen(false)}
+        serverUrl={serverUrl}
+        onSaveServerUrl={setServerUrl}
+        isConnected={isLiveConnected}
+        isLocalMode={isLocalMode}
+        onTestConnection={testServerConnection}
+      />
     </div>
   );
 }

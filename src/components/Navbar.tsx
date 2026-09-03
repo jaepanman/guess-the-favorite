@@ -7,9 +7,19 @@ interface NavbarProps {
   roomState: GameRoomState | null;
   myPlayer: Player | undefined;
   onOpenSettings?: () => void;
+  isLiveConnected?: boolean;
+  isLocalMode?: boolean;
+  onOpenServerModal?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ roomState, myPlayer, onOpenSettings }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  roomState,
+  myPlayer,
+  onOpenSettings,
+  isLiveConnected,
+  isLocalMode,
+  onOpenServerModal,
+}) => {
   const [copied, setCopied] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(true);
 
@@ -57,9 +67,9 @@ export const Navbar: React.FC<NavbarProps> = ({ roomState, myPlayer, onOpenSetti
           )}
         </div>
 
-        {/* Middle: Join Code pill */}
-        {roomState && (
-          <div className="flex items-center gap-2">
+        {/* Middle: Join Code pill & Server Status */}
+        <div className="flex items-center gap-2">
+          {roomState && (
             <button
               onClick={handleCopyCode}
               id="copy-room-code-btn"
@@ -76,8 +86,32 @@ export const Navbar: React.FC<NavbarProps> = ({ roomState, myPlayer, onOpenSetti
                 <Copy className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
               )}
             </button>
-          </div>
-        )}
+          )}
+
+          {onOpenServerModal && (
+            <button
+              onClick={onOpenServerModal}
+              id="server-status-pill-btn"
+              title="Click to configure multiplayer server connection"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer ${
+                isLiveConnected
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : isLocalMode
+                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                isLiveConnected
+                  ? 'bg-emerald-400 animate-pulse'
+                  : isLocalMode
+                  ? 'bg-indigo-400'
+                  : 'bg-amber-400 animate-ping'
+              }`} />
+              <span>{isLiveConnected ? 'Live Server' : isLocalMode ? 'In-Browser Host' : 'Connecting...'}</span>
+            </button>
+          )}
+        </div>
 
         {/* Right Controls: Presenter / User Profile & Settings */}
         <div className="flex items-center gap-3 sm:gap-4">

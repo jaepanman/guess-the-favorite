@@ -21,10 +21,12 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
   const category = roomState.currentCategory;
   const presenter = roomState.presenterId ? roomState.players[roomState.presenterId] : null;
   const isPresenter = Boolean(myPlayer && myPlayer.id === roomState.presenterId);
+  const isHost = Boolean(myPlayer?.isTeacher);
+  const canMakeChoice = Boolean(isPresenter || isHost);
 
-  // Keyboard shortcut listener for numbers 1 to 6 (for presenter)
+  // Keyboard shortcut listener for numbers 1 to 6 (for presenter or host)
   useEffect(() => {
-    if (!isPresenter) return;
+    if (!canMakeChoice) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const keyNum = parseInt(e.key, 10);
@@ -39,7 +41,7 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPresenter, category.options, onChooseOption]);
+  }, [canMakeChoice, category.options, onChooseOption]);
 
   const handleSpeakQuestion = () => {
     speakEnglishPhrase(category.questionPhrase);
@@ -96,8 +98,8 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
       </div>
 
       {/* Presenter Mode vs Student Waiting Mode */}
-      {isPresenter ? (
-        /* PRESENTER CHOOSING VIEW */
+      {canMakeChoice ? (
+        /* PRESENTER OR HOST CHOOSING VIEW */
         <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
             <div className="flex items-center gap-3.5">
@@ -106,16 +108,30 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  You are the Presenter!
+                  {isPresenter ? 'You are the Presenter!' : 'Classroom Host Authority'}
                 </h2>
                 <p className="text-slate-400 text-xs sm:text-sm font-medium">
-                  Choose the {category.label.toLowerCase()} you like most. Press [1-6] or click below:
+                  {isPresenter
+                    ? `Choose the ${category.label.toLowerCase()} you like most. Press [1-6] or click below:`
+                    : `Make your choice to open student guessing, or assign presenter to yourself:`}
                 </p>
               </div>
             </div>
-            <span className="self-start sm:self-center px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[10px] uppercase tracking-wider">
-              Secret Choice
-            </span>
+
+            <div className="flex items-center gap-2">
+              {!isPresenter && myPlayer && (
+                <button
+                  onClick={() => onSetPresenter(myPlayer.id)}
+                  id="claim-presenter-btn"
+                  className="px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+                >
+                  👑 Set Myself as Presenter
+                </button>
+              )}
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[10px] uppercase tracking-wider">
+                Secret Choice
+              </span>
+            </div>
           </div>
 
           {/* 6 Interactive Choice Cards */}
