@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameSocket } from './hooks/useGameSocket';
 import { Navbar } from './components/Navbar';
 import { LobbyView } from './components/LobbyView';
@@ -44,6 +44,28 @@ export default function App() {
   // Active room code helper
   const roomCode = roomState?.code || 'EFL1';
   const playersList = roomState ? Object.values(roomState.players) : [];
+
+  // Auto scroll back to the top whenever changing stages, rounds, or views
+  const currentStage = roomState?.stage;
+  const currentRoundIndex = roomState?.roundIndex;
+  const isJoined = Boolean(myPlayer);
+
+  useEffect(() => {
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      if (document.documentElement) {
+        document.documentElement.scrollTop = 0;
+      }
+      if (document.body) {
+        document.body.scrollTop = 0;
+      }
+    };
+
+    scrollToTop();
+    // Re-verify after frame renders in case of asynchronous layout reflow
+    const frameId = requestAnimationFrame(scrollToTop);
+    return () => cancelAnimationFrame(frameId);
+  }, [currentStage, currentRoundIndex, isJoined]);
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAFC] flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
