@@ -86,7 +86,8 @@ export interface GameRoomState {
 }
 
 export type ClientMessage =
-  | { type: 'JOIN_ROOM'; roomCode: string; name: string; avatar: string; favoriteColor: string; isTeacher?: boolean }
+  | { type: 'JOIN_ROOM'; roomCode: string; name: string; avatar: string; favoriteColor: string; isTeacher?: boolean; playerId?: string }
+  | { type: 'RECONNECT'; roomCode: string; playerId: string }
   | { type: 'START_GAME'; roomCode: string }
   | { type: 'PRESENTER_CHOICE'; roomCode: string; optionId: string }
   | { type: 'SUBMIT_GUESS'; roomCode: string; optionId: string; elapsedMs: number }
@@ -98,10 +99,13 @@ export type ClientMessage =
   | { type: 'UPDATE_SETTINGS'; roomCode: string; settings: Partial<GameSettings> }
   | { type: 'ADD_DEMO_BOTS'; roomCode: string; count: number }
   | { type: 'REMOVE_DEMO_BOTS'; roomCode: string }
-  | { type: 'RESET_GAME'; roomCode: string };
+  | { type: 'RESET_GAME'; roomCode: string }
+  | { type: 'PING' };
 
 export type ServerMessage =
   | { type: 'ROOM_STATE'; state: GameRoomState }
+  | { type: 'JOIN_SUCCESS'; playerId: string; state: GameRoomState }
   | { type: 'ERROR'; message: string }
+  | { type: 'PONG' }
   | { type: 'NEW_ROUND_NOTIFICATION'; presenterName: string; categoryLabel: string }
   | { type: 'TIMER_TICK'; remainingMs: number };

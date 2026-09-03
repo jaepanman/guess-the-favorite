@@ -40,6 +40,8 @@ interface ServerRoom {
   state: GameRoomState;
   sockets: Map<string, WebSocket>;
   botIntervals?: NodeJS.Timeout[];
+  revealTimeout?: NodeJS.Timeout;
+  botPresenterTimeout?: NodeJS.Timeout;
 }
 
 const rooms = new Map<string, ServerRoom>();
@@ -243,6 +245,64 @@ function clearBotTimeouts(room: ServerRoom) {
   }
 }
 
+function clearRoomTimers(room: ServerRoom) {
+  clearBotTimeouts(room);
+  if (room.revealTimeout) {
+    clearTimeout(room.revealTimeout);
+    room.revealTimeout = undefined;
+  }
+  if (room.botPresenterTimeout) {
+    clearTimeout(room.botPresenterTimeout);
+    room.botPresenterTimeout = undefined;
+  }
+}
+
+function startClassGuessingPhase(room: ServerRoom) {
+  clearRoomTimers(room);
+  room.state.stage = 'CLASS_GUESSING';
+  room.state.guessPhaseStartTime = Date.now();
+
+  // Reset guesses for all players
+  Object.values(room.state.players).forEach(p => {
+    p.currentGuess = null;
+    p.guessElapsedMs = null;
+  });
+
+  // Spawn bot guesses
+  spawnBotsForGuessing(room);
+
+  // Authoritative server-side auto-reveal timeout
+  const limitMs = (room.state.settings.timeLimitSeconds + 1.5) * 1000;
+  room.revealTimeout = setTimeout(() => {
+    if (room.state.stage === 'CLASS_GUESSING') {
+      clearBotTimeouts(room);
+      room.state.stage = 'REVEAL';
+      calculateRoundScores(room);
+      broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+    }
+  }, limitMs);
+}
+
+function checkBotPresenterSelection(room: ServerRoom) {
+  if (room.state.stage !== 'PRESENTER_SELECTING') return;
+  const presenter = room.state.presenterId ? room.state.players[room.state.presenterId] : null;
+  if (!presenter || !presenter.isBot) return;
+
+  if (room.botPresenterTimeout) {
+    clearTimeout(room.botPresenterTimeout);
+  }
+
+  room.botPresenterTimeout = setTimeout(() => {
+    if (room.state.stage === 'PRESENTER_SELECTING' && room.state.presenterId === presenter.id) {
+      const options = room.state.currentCategory.options;
+      const chosen = options[Math.floor(Math.random() * options.length)];
+      room.state.presenterChoice = chosen.id;
+      startClassGuessingPhase(room);
+      broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+    }
+  }, 2500);
+}
+
 function checkAllGuessedAndReveal(room: ServerRoom) {
   const { state } = room;
   if (state.stage !== 'CLASS_GUESSING') return;
@@ -252,7 +312,7 @@ function checkAllGuessedAndReveal(room: ServerRoom) {
 
   const allGuessed = activeGuessers.every(p => p.currentGuess !== null && p.currentGuess !== undefined);
   if (allGuessed) {
-    // Small delay before reveal for visual polish
+    clearRoomTimers(room);
     setTimeout(() => {
       if (state.stage === 'CLASS_GUESSING') {
         state.stage = 'REVEAL';
@@ -262,6 +322,336 @@ function checkAllGuessedAndReveal(room: ServerRoom) {
     }, 600);
   }
 }
+
+function handleJoin(
+  roomCode: string,
+  name: string,
+  avatar: string,
+  favoriteColor: string,
+  isTeacher?: boolean,
+  existingPlayerId?: string
+): { room: ServerRoom; player: Player } {
+  const room = getOrCreateRoom(roomCode);
+  let playerId = existingPlayerId;
+
+  // If player already exists in this room, re-attach session
+  if (playerId && room.state.players[playerId]) {
+    const existing = room.state.players[playerId];
+    existing.name = name.trim() || existing.name;
+    existing.avatar = avatar || existing.avatar;
+    existing.favoriteColor = favoriteColor || existing.favoriteColor;
+    existing.connected = true;
+    if (typeof isTeacher === 'boolean') {
+      existing.isTeacher = isTeacher;
+    }
+    updateRanks(room.state.players);
+    return { room, player: existing };
+  }
+
+  // Otherwise create new player
+  if (!playerId) {
+    playerId = 'p_' + Math.random().toString(36).substring(2, 9);
+  }
+
+  const isFirstPlayer = Object.keys(room.state.players).length === 0;
+  const playerIsTeacher = typeof isTeacher === 'boolean' ? isTeacher : isFirstPlayer;
+
+  const player: Player = {
+    id: playerId,
+    name: name.trim() || (playerIsTeacher ? 'Teacher' : 'Student'),
+    avatar: avatar || '🐶',
+    favoriteColor: favoriteColor || 'sky',
+    score: 0,
+    previousRank: 0,
+    currentRank: Object.keys(room.state.players).length + 1,
+    isPresenter: room.state.presenterId === null,
+    isTeacher: Boolean(playerIsTeacher),
+    connected: true,
+    currentGuess: null,
+    guessElapsedMs: null,
+    roundScore: 0,
+  };
+
+  if (room.state.presenterId === null) {
+    room.state.presenterId = playerId;
+  }
+
+  room.state.players[playerId] = player;
+  updateRanks(room.state.players);
+
+  return { room, player };
+}
+
+function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessage) {
+  const player = room.state.players[playerId];
+  if (!player && msg.type !== 'JOIN_ROOM' && msg.type !== 'RECONNECT') {
+    return;
+  }
+
+  switch (msg.type) {
+    case 'START_GAME': {
+      clearRoomTimers(room);
+      room.state.roundIndex = 0;
+      const initialCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
+      room.state.currentCategory = initialCategory;
+      room.state.stage = 'PRESENTER_SELECTING';
+      room.state.presenterChoice = null;
+      room.state.guessPhaseStartTime = null;
+
+      // Clear previous round guesses
+      Object.values(room.state.players).forEach(p => {
+        p.currentGuess = null;
+        p.guessElapsedMs = null;
+        p.roundScore = 0;
+      });
+
+      // Ensure a valid presenter exists
+      if (!room.state.presenterId || !room.state.players[room.state.presenterId]) {
+        room.state.presenterId = playerId;
+      }
+      Object.values(room.state.players).forEach(p => {
+        p.isPresenter = p.id === room.state.presenterId;
+      });
+
+      checkBotPresenterSelection(room);
+      break;
+    }
+
+    case 'PRESENTER_CHOICE': {
+      if (playerId !== room.state.presenterId) return;
+      if (room.state.stage !== 'PRESENTER_SELECTING') return;
+
+      room.state.presenterChoice = msg.optionId;
+      startClassGuessingPhase(room);
+      break;
+    }
+
+    case 'SUBMIT_GUESS': {
+      if (playerId === room.state.presenterId) return;
+      if (room.state.stage !== 'CLASS_GUESSING') return;
+
+      if (player && !player.currentGuess) {
+        player.currentGuess = msg.optionId;
+        player.guessElapsedMs = msg.elapsedMs;
+        checkAllGuessedAndReveal(room);
+      }
+      break;
+    }
+
+    case 'TRIGGER_REVEAL': {
+      if (room.state.stage === 'CLASS_GUESSING') {
+        clearRoomTimers(room);
+        room.state.stage = 'REVEAL';
+        calculateRoundScores(room);
+      }
+      break;
+    }
+
+    case 'SHOW_SCOREBOARD': {
+      if (room.state.stage === 'REVEAL') {
+        room.state.stage = 'SCOREBOARD';
+      }
+      break;
+    }
+
+    case 'NEXT_ROUND': {
+      clearRoomTimers(room);
+      const nextIndex = room.state.roundIndex + 1;
+
+      if (nextIndex >= CATEGORY_ORDER.length) {
+        room.state.stage = 'GAME_OVER';
+        break;
+      }
+
+      room.state.roundIndex = nextIndex;
+      const nextCatId = msg.categoryId || CATEGORY_ORDER[nextIndex % CATEGORY_ORDER.length];
+      room.state.currentCategory = GAME_CATEGORIES[nextCatId] || GAME_CATEGORIES.sport;
+      room.state.presenterChoice = null;
+      room.state.guessPhaseStartTime = null;
+      room.state.stage = 'PRESENTER_SELECTING';
+
+      // Pick next presenter
+      if (room.state.settings.autoRandomPresenter) {
+        const playerIds = Object.keys(room.state.players);
+        if (playerIds.length > 1) {
+          const candidates = playerIds.filter(id => id !== room.state.presenterId);
+          const chosenId = candidates[Math.floor(Math.random() * candidates.length)];
+          room.state.presenterId = chosenId;
+        }
+      }
+
+      // Reset round state for all players
+      Object.values(room.state.players).forEach(p => {
+        p.currentGuess = null;
+        p.guessElapsedMs = null;
+        p.roundScore = 0;
+        p.isPresenter = p.id === room.state.presenterId;
+      });
+
+      checkBotPresenterSelection(room);
+      break;
+    }
+
+    case 'SET_PRESENTER': {
+      if (room.state.players[msg.playerId]) {
+        room.state.presenterId = msg.playerId;
+        Object.values(room.state.players).forEach(p => {
+          p.isPresenter = p.id === msg.playerId;
+        });
+        if (room.state.stage === 'PRESENTER_SELECTING') {
+          checkBotPresenterSelection(room);
+        }
+      }
+      break;
+    }
+
+    case 'PICK_RANDOM_PRESENTER': {
+      const playerIds = Object.keys(room.state.players);
+      if (playerIds.length > 0) {
+        const candidates = playerIds.filter(id => id !== room.state.presenterId);
+        const chosenId = candidates.length > 0
+          ? candidates[Math.floor(Math.random() * candidates.length)]
+          : playerIds[0];
+        
+        room.state.presenterId = chosenId;
+        Object.values(room.state.players).forEach(p => {
+          p.isPresenter = p.id === chosenId;
+        });
+        if (room.state.stage === 'PRESENTER_SELECTING') {
+          checkBotPresenterSelection(room);
+        }
+      }
+      break;
+    }
+
+    case 'UPDATE_SETTINGS': {
+      room.state.settings = { ...room.state.settings, ...msg.settings };
+      break;
+    }
+
+    case 'ADD_DEMO_BOTS': {
+      const count = Math.min(6, Math.max(1, msg.count || 3));
+      const existingNames = new Set(Object.values(room.state.players).map(p => p.name));
+      const availableBots = BOT_NAMES.filter(n => !existingNames.has(n));
+
+      for (let i = 0; i < count; i++) {
+        const botName = availableBots[i] || `Student_${Math.floor(Math.random() * 90 + 10)}`;
+        const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
+        room.state.players[botId] = {
+          id: botId,
+          name: botName,
+          avatar: BOT_AVATARS[i % BOT_AVATARS.length],
+          favoriteColor: BOT_COLORS[i % BOT_COLORS.length],
+          score: Math.floor(Math.random() * 400),
+          previousRank: 0,
+          currentRank: Object.keys(room.state.players).length + 1,
+          isPresenter: false,
+          isTeacher: false,
+          isBot: true,
+          connected: true,
+          currentGuess: null,
+          guessElapsedMs: null,
+          roundScore: 0,
+        };
+      }
+      updateRanks(room.state.players);
+      break;
+    }
+
+    case 'REMOVE_DEMO_BOTS': {
+      Object.keys(room.state.players).forEach(id => {
+        if (room.state.players[id].isBot) {
+          delete room.state.players[id];
+        }
+      });
+      if (room.state.presenterId && !room.state.players[room.state.presenterId]) {
+        const remaining = Object.keys(room.state.players);
+        room.state.presenterId = remaining.length > 0 ? remaining[0] : null;
+      }
+      updateRanks(room.state.players);
+      break;
+    }
+
+    case 'RESET_GAME': {
+      clearRoomTimers(room);
+      room.state.roundIndex = 0;
+      room.state.currentCategory = GAME_CATEGORIES.sport;
+      room.state.presenterChoice = null;
+      room.state.guessPhaseStartTime = null;
+      room.state.stage = 'LOBBY';
+      room.state.roundHistory = [];
+      room.state.lastRoundResult = null;
+
+      Object.values(room.state.players).forEach(p => {
+        p.score = 0;
+        p.previousRank = 0;
+        p.currentRank = 1;
+        p.currentGuess = null;
+        p.guessElapsedMs = null;
+        p.roundScore = 0;
+      });
+      break;
+    }
+  }
+}
+
+// REST API Endpoints for resilient fallback (School firewalls / HTTP sync)
+app.get('/api/room/:code', (req, res) => {
+  const code = (req.params.code || 'EFL1').toUpperCase();
+  const room = getOrCreateRoom(code);
+  const playerId = typeof req.query.playerId === 'string' ? req.query.playerId : undefined;
+  const player = playerId ? room.state.players[playerId] : null;
+
+  res.json({
+    status: 'ok',
+    state: room.state,
+    player: player || null,
+  });
+});
+
+app.post('/api/room/join', (req, res) => {
+  const { roomCode, name, avatar, favoriteColor, isTeacher, playerId } = req.body;
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  const { room, player } = handleJoin(
+    roomCode || 'EFL1',
+    name,
+    avatar || '🐶',
+    favoriteColor || 'sky',
+    Boolean(isTeacher),
+    playerId
+  );
+
+  broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+
+  res.json({
+    status: 'ok',
+    playerId: player.id,
+    state: room.state,
+  });
+});
+
+app.post('/api/room/action', (req, res) => {
+  const { roomCode, playerId, action } = req.body;
+  const room = rooms.get((roomCode || 'EFL1').toUpperCase());
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  if (playerId && !room.state.players[playerId]) {
+    return res.status(403).json({ error: 'Player not found in room' });
+  }
+
+  handleClientAction(room, playerId, action);
+  broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+
+  res.json({
+    status: 'ok',
+    state: room.state,
+  });
+});
 
 // Attach WebSocket server
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -274,42 +664,57 @@ wss.on('connection', (ws: WebSocket) => {
     try {
       const msg: ClientMessage = JSON.parse(raw.toString());
 
+      if (msg.type === 'PING') {
+        ws.send(JSON.stringify({ type: 'PONG' }));
+        return;
+      }
+
       if (msg.type === 'JOIN_ROOM') {
+        const { room, player } = handleJoin(
+          msg.roomCode,
+          msg.name,
+          msg.avatar,
+          msg.favoriteColor,
+          msg.isTeacher,
+          msg.playerId
+        );
+
+        currentRoomCode = room.state.code;
+        currentPlayerId = player.id;
+        room.sockets.set(player.id, ws);
+
+        // Crucial: send JOIN_SUCCESS directly to this client socket!
+        ws.send(JSON.stringify({
+          type: 'JOIN_SUCCESS',
+          playerId: player.id,
+          state: room.state,
+        }));
+
+        // Broadcast updated state to all other players in the room
+        broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+        return;
+      }
+
+      if (msg.type === 'RECONNECT') {
         const room = getOrCreateRoom(msg.roomCode);
         currentRoomCode = room.state.code;
-        
-        // Generate or reuse player id
-        const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
-        currentPlayerId = playerId;
+        currentPlayerId = msg.playerId;
 
-        const isFirstPlayer = Object.keys(room.state.players).length === 0;
-        const isTeacher = msg.isTeacher ?? isFirstPlayer;
-
-        const player: Player = {
-          id: playerId,
-          name: msg.name.trim() || (isTeacher ? 'Teacher' : 'Student'),
-          avatar: msg.avatar || '🐶',
-          favoriteColor: msg.favoriteColor || 'sky',
-          score: 0,
-          previousRank: 0,
-          currentRank: Object.keys(room.state.players).length + 1,
-          isPresenter: room.state.presenterId === null,
-          isTeacher: Boolean(isTeacher),
-          connected: true,
-          currentGuess: null,
-          guessElapsedMs: null,
-          roundScore: 0,
-        };
-
-        if (room.state.presenterId === null) {
-          room.state.presenterId = playerId;
+        if (room.state.players[msg.playerId]) {
+          room.state.players[msg.playerId].connected = true;
+          room.sockets.set(msg.playerId, ws);
+          ws.send(JSON.stringify({
+            type: 'JOIN_SUCCESS',
+            playerId: msg.playerId,
+            state: room.state,
+          }));
+          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+        } else {
+          ws.send(JSON.stringify({
+            type: 'ROOM_STATE',
+            state: room.state,
+          }));
         }
-
-        room.state.players[playerId] = player;
-        room.sockets.set(playerId, ws);
-
-        updateRanks(room.state.players);
-        broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
         return;
       }
 
@@ -317,227 +722,9 @@ wss.on('connection', (ws: WebSocket) => {
       const room = rooms.get(currentRoomCode);
       if (!room) return;
 
-      const player = room.state.players[currentPlayerId];
-      if (!player) return;
-
-      switch (msg.type) {
-        case 'START_GAME': {
-          room.state.roundIndex = 0;
-          const initialCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
-          room.state.currentCategory = initialCategory;
-          room.state.stage = 'PRESENTER_SELECTING';
-          room.state.presenterChoice = null;
-          room.state.guessPhaseStartTime = null;
-
-          // Clear previous round guesses
-          Object.values(room.state.players).forEach(p => {
-            p.currentGuess = null;
-            p.guessElapsedMs = null;
-            p.roundScore = 0;
-          });
-
-          // Ensure a presenter exists
-          if (!room.state.presenterId || !room.state.players[room.state.presenterId]) {
-            room.state.presenterId = currentPlayerId;
-            room.state.players[currentPlayerId].isPresenter = true;
-          }
-
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'PRESENTER_CHOICE': {
-          // Only the presenter can lock in their choice
-          if (currentPlayerId !== room.state.presenterId) return;
-          if (room.state.stage !== 'PRESENTER_SELECTING') return;
-
-          room.state.presenterChoice = msg.optionId;
-          room.state.stage = 'CLASS_GUESSING';
-          room.state.guessPhaseStartTime = Date.now();
-
-          // Reset guesses for all players
-          Object.values(room.state.players).forEach(p => {
-            p.currentGuess = null;
-            p.guessElapsedMs = null;
-          });
-
-          // If bots are in the room, start bot guessing behavior
-          spawnBotsForGuessing(room);
-
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'SUBMIT_GUESS': {
-          // Only guessers (non-presenters) can submit during CLASS_GUESSING
-          if (currentPlayerId === room.state.presenterId) return;
-          if (room.state.stage !== 'CLASS_GUESSING') return;
-
-          player.currentGuess = msg.optionId;
-          player.guessElapsedMs = msg.elapsedMs;
-
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          checkAllGuessedAndReveal(room);
-          break;
-        }
-
-        case 'TRIGGER_REVEAL': {
-          // Host/Teacher or Presenter can force reveal
-          if (room.state.stage === 'CLASS_GUESSING') {
-            clearBotTimeouts(room);
-            room.state.stage = 'REVEAL';
-            calculateRoundScores(room);
-            broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          }
-          break;
-        }
-
-        case 'SHOW_SCOREBOARD': {
-          room.state.stage = 'SCOREBOARD';
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'NEXT_ROUND': {
-          clearBotTimeouts(room);
-          const nextIndex = room.state.roundIndex + 1;
-          
-          if (nextIndex >= CATEGORY_ORDER.length) {
-            room.state.stage = 'GAME_OVER';
-            broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-            return;
-          }
-
-          room.state.roundIndex = nextIndex;
-          const nextCatId = msg.categoryId || CATEGORY_ORDER[nextIndex % CATEGORY_ORDER.length];
-          room.state.currentCategory = GAME_CATEGORIES[nextCatId] || GAME_CATEGORIES.sport;
-          room.state.presenterChoice = null;
-          room.state.guessPhaseStartTime = null;
-          room.state.stage = 'PRESENTER_SELECTING';
-
-          // Check if auto-random presenter is enabled
-          if (room.state.settings.autoRandomPresenter) {
-            const playerIds = Object.keys(room.state.players);
-            if (playerIds.length > 1) {
-              // Pick someone other than the current presenter if possible
-              const candidates = playerIds.filter(id => id !== room.state.presenterId);
-              const chosenId = candidates[Math.floor(Math.random() * candidates.length)];
-              
-              Object.values(room.state.players).forEach(p => {
-                p.isPresenter = p.id === chosenId;
-              });
-              room.state.presenterId = chosenId;
-            }
-          }
-
-          // Reset round state for all players
-          Object.values(room.state.players).forEach(p => {
-            p.currentGuess = null;
-            p.guessElapsedMs = null;
-            p.roundScore = 0;
-            p.isPresenter = p.id === room.state.presenterId;
-          });
-
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'SET_PRESENTER': {
-          if (!room.state.players[msg.playerId]) return;
-          room.state.presenterId = msg.playerId;
-          Object.values(room.state.players).forEach(p => {
-            p.isPresenter = p.id === msg.playerId;
-          });
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'PICK_RANDOM_PRESENTER': {
-          const playerIds = Object.keys(room.state.players);
-          if (playerIds.length > 0) {
-            const chosenId = playerIds[Math.floor(Math.random() * playerIds.length)];
-            room.state.presenterId = chosenId;
-            Object.values(room.state.players).forEach(p => {
-              p.isPresenter = p.id === chosenId;
-            });
-            broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          }
-          break;
-        }
-
-        case 'UPDATE_SETTINGS': {
-          room.state.settings = {
-            ...room.state.settings,
-            ...msg.settings,
-          };
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'ADD_DEMO_BOTS': {
-          const count = Math.min(6, Math.max(1, msg.count || 3));
-          for (let i = 0; i < count; i++) {
-            const botId = 'bot_' + Math.random().toString(36).substring(2, 7);
-            const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + ' ' + (Math.floor(Math.random() * 89) + 10);
-            const botAvatar = BOT_AVATARS[Math.floor(Math.random() * BOT_AVATARS.length)];
-            const botColor = BOT_COLORS[Math.floor(Math.random() * BOT_COLORS.length)];
-
-            room.state.players[botId] = {
-              id: botId,
-              name: botName,
-              avatar: botAvatar,
-              favoriteColor: botColor,
-              score: Math.floor(Math.random() * 800),
-              previousRank: Object.keys(room.state.players).length + 1,
-              currentRank: Object.keys(room.state.players).length + 1,
-              isPresenter: false,
-              isTeacher: false,
-              isBot: true,
-              connected: true,
-              currentGuess: null,
-              guessElapsedMs: null,
-              roundScore: 0,
-            };
-          }
-          updateRanks(room.state.players);
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'REMOVE_DEMO_BOTS': {
-          Object.keys(room.state.players).forEach(id => {
-            if (room.state.players[id].isBot) {
-              delete room.state.players[id];
-            }
-          });
-          updateRanks(room.state.players);
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-
-        case 'RESET_GAME': {
-          clearBotTimeouts(room);
-          room.state.roundIndex = 0;
-          room.state.currentCategory = GAME_CATEGORIES.sport;
-          room.state.presenterChoice = null;
-          room.state.guessPhaseStartTime = null;
-          room.state.stage = 'LOBBY';
-          room.state.roundHistory = [];
-          room.state.lastRoundResult = null;
-
-          Object.values(room.state.players).forEach(p => {
-            p.score = 0;
-            p.previousRank = 0;
-            p.currentRank = 1;
-            p.currentGuess = null;
-            p.guessElapsedMs = null;
-            p.roundScore = 0;
-          });
-
-          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
-          break;
-        }
-      }
+      handleClientAction(room, currentPlayerId, msg);
+      broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+      return;
     } catch (err) {
       console.error('WebSocket message parsing error:', err);
     }
@@ -556,6 +743,19 @@ wss.on('connection', (ws: WebSocket) => {
     }
   });
 });
+
+// Periodic keep-alive ping loop to prevent Cloud Run / reverse proxy idle timeout disconnects
+setInterval(() => {
+  for (const room of rooms.values()) {
+    for (const [playerId, socket] of room.sockets.entries()) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.ping();
+      } else {
+        room.sockets.delete(playerId);
+      }
+    }
+  }
+}, 25000);
 
 // Vite middleware in dev mode or static serving in production
 async function startServer() {
