@@ -24,7 +24,7 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
   const isHost = Boolean(myPlayer?.isTeacher);
   const canMakeChoice = Boolean(isPresenter || isHost);
 
-  // Keyboard shortcut listener for numbers 1 to 6 (for presenter or host)
+  // Keyboard shortcut listener for numbers 1 to 5 (for presenter or host)
   useEffect(() => {
     if (!canMakeChoice) return;
 
@@ -112,7 +112,7 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
                 </h2>
                 <p className="text-slate-400 text-xs sm:text-sm font-medium">
                   {isPresenter
-                    ? `Choose the ${category.label.toLowerCase()} you like most. Press [1-6] or click below:`
+                    ? `Choose the ${category.label.toLowerCase()} you like most. Press [1-5] or click below:`
                     : `Make your choice to open student guessing, or assign presenter to yourself:`}
                 </p>
               </div>
@@ -134,55 +134,73 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
             </div>
           </div>
 
-          {/* 6 Interactive Choice Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          {/* Interactive Choice Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
             {category.options.map((opt) => (
-              <button
+              <div
                 key={opt.id}
                 id={`presenter-choice-${opt.id}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   playLockInSound();
                   onChooseOption(opt.id);
                 }}
-                className="group relative flex flex-col p-6 rounded-3xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    playLockInSound();
+                    onChooseOption(opt.id);
+                  }
+                }}
+                className="group relative flex flex-col p-4 sm:p-5 rounded-2xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5 focus:outline-none focus:border-indigo-500"
               >
                 {/* Number in corner */}
-                <span className="absolute top-4 left-4 text-slate-600 font-black text-xl group-hover:text-indigo-400/80 transition">
+                <span className="absolute top-3 left-3 text-slate-600 font-black text-sm sm:text-base group-hover:text-indigo-400/80 transition">
                   {opt.keyNumber}
                 </span>
 
-                <div className="flex justify-center my-3">
-                  <span className="text-5xl group-hover:scale-110 transition-transform">
+                <div className="flex justify-center my-2 sm:my-3">
+                  <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform">
                     {opt.icon}
                   </span>
                 </div>
 
-                <div className="font-black text-white text-lg sm:text-xl tracking-wide uppercase text-center group-hover:text-indigo-200">
+                {/* English Name - Most Prominent */}
+                <div className="font-black text-white text-base sm:text-lg tracking-wide uppercase text-center group-hover:text-indigo-200">
                   {opt.name}
                 </div>
 
+                {/* Japanese Name - Smaller, fainter font */}
+                {opt.japanese && (
+                  <div className="text-xs text-slate-400 font-medium text-center mt-0.5 tracking-normal">
+                    {opt.japanese}
+                  </div>
+                )}
+
                 {opt.phonetic && (
-                  <div className="text-xs text-indigo-300/70 font-mono text-center mt-0.5">
+                  <div className="text-[10px] text-indigo-300/60 font-mono text-center mt-0.5">
                     {opt.phonetic}
                   </div>
                 )}
 
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-bold text-indigo-300">
-                  <span>&ldquo;I like {opt.name}!&rdquo;</span>
+                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-bold text-indigo-300">
+                  <span className="truncate">&ldquo;I like {opt.name}!&rdquo;</span>
                   <button
+                    type="button"
                     onClick={(e) => handleSpeakOption(e, opt.name)}
                     title={`Hear "I like ${opt.name}!"`}
-                    className="p-1 rounded-lg hover:bg-white/10 text-indigo-400 hover:text-white transition"
+                    className="p-1 rounded-lg hover:bg-white/10 text-indigo-400 hover:text-white transition shrink-0 cursor-pointer"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
                 {/* Bottom geometric accent bar */}
-                <div className="absolute bottom-0 left-0 w-full h-1.5 bg-slate-900">
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-900">
                   <div className="h-full bg-indigo-500 w-0 group-hover:w-full transition-all duration-300"></div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -233,15 +251,18 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {category.options.map((opt) => (
                 <div
                   key={opt.id}
-                  className="relative p-4 rounded-2xl border border-white/5 bg-slate-800/30 flex flex-col items-center text-center opacity-70"
+                  className="relative p-3 rounded-2xl border border-white/5 bg-slate-800/30 flex flex-col items-center text-center opacity-70"
                 >
-                  <span className="text-3xl mb-1">{opt.icon}</span>
+                  <span className="text-2xl sm:text-3xl mb-1">{opt.icon}</span>
                   <span className="text-xs font-bold text-slate-200">{opt.name}</span>
-                  <span className="text-[10px] text-indigo-300/60 font-mono mt-0.5">{opt.phonetic}</span>
+                  {opt.japanese && (
+                    <span className="text-[10px] text-slate-400 font-medium mt-0.5">{opt.japanese}</span>
+                  )}
+                  <span className="text-[9px] text-indigo-300/60 font-mono mt-0.5">{opt.phonetic}</span>
                 </div>
               ))}
             </div>

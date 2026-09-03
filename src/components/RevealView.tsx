@@ -63,10 +63,15 @@ export const RevealView: React.FC<RevealViewProps> = ({
             <div className="text-xs font-black text-slate-400 uppercase tracking-widest">
               {presenter?.name}&apos;s Favorite {category.label}
             </div>
-            <div className="text-3xl sm:text-5xl font-black text-white flex items-center gap-3">
+            <div className="text-3xl sm:text-5xl font-black text-white flex items-center justify-center sm:justify-start gap-3 flex-wrap">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
                 {correctOption?.icon} {correctOption?.name}
               </span>
+              {correctOption?.japanese && (
+                <span className="text-sm sm:text-lg text-slate-400 font-medium tracking-normal">
+                  ({correctOption.japanese})
+                </span>
+              )}
               <button
                 onClick={() => speakEnglishPhrase(`I like ${correctOption?.name}!`)}
                 title="Speak EFL answer phrase"
@@ -126,6 +131,11 @@ export const RevealView: React.FC<RevealViewProps> = ({
                     <span className="font-black text-white text-base">
                       {opt.name}
                     </span>
+                    {opt.japanese && (
+                      <span className="text-xs text-slate-400 font-normal">
+                        ({opt.japanese})
+                      </span>
+                    )}
                     {isCorrect && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black border border-emerald-500/30">
                         <Crown className="w-3 h-3 text-emerald-400" />

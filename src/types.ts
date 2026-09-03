@@ -2,9 +2,10 @@ export type CategoryId = 'sport' | 'color' | 'fruit' | 'food' | 'drink' | 'desse
 
 export interface CategoryOption {
   id: string;
-  keyNumber: number; // 1 to 6
+  keyNumber: number; // 1 to 10
   name: string;
   icon: string;
+  japanese?: string;
   colorClass?: string;
   phonetic?: string;
 }
@@ -99,6 +100,7 @@ export type ClientMessage =
   | { type: 'UPDATE_SETTINGS'; roomCode: string; settings: Partial<GameSettings> }
   | { type: 'ADD_DEMO_BOTS'; roomCode: string; count: number }
   | { type: 'REMOVE_DEMO_BOTS'; roomCode: string }
+  | { type: 'END_GAME'; roomCode: string }
   | { type: 'RESET_GAME'; roomCode: string }
   | { type: 'PING' };
 

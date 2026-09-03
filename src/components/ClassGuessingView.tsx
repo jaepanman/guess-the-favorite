@@ -27,6 +27,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [selectedGuess, setSelectedGuess] = useState<string | null>(myPlayer?.currentGuess || null);
   const [lockedTime, setLockedTime] = useState<number | null>(myPlayer?.guessElapsedMs || null);
+  const myGuessOption = category.options.find(o => o.id === selectedGuess);
 
   // Live timer tick
   useEffect(() => {
@@ -63,7 +64,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
     onSubmitGuess(optId, currentElapsed);
   };
 
-  // Keyboard number shortcuts (1-6) for students
+  // Keyboard number shortcuts (1-5) for students
   useEffect(() => {
     if (isPresenter || selectedGuess) return;
 
@@ -237,6 +238,15 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               <h2 className="text-2xl font-black text-white">
                 Guess Locked In!
               </h2>
+              {myGuessOption && (
+                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-slate-800/90 border border-white/10 text-white font-bold my-1 shadow-sm">
+                  <span className="text-2xl">{myGuessOption.icon}</span>
+                  <span className="font-black text-indigo-300 text-base">{myGuessOption.name}</span>
+                  {myGuessOption.japanese && (
+                    <span className="text-xs text-slate-400 font-medium">({myGuessOption.japanese})</span>
+                  )}
+                </div>
+              )}
               <p className="text-slate-300 text-base">
                 You guessed in <strong className="font-mono text-emerald-400">{((lockedTime || 0) / 1000).toFixed(2)}s</strong>.
               </p>
@@ -249,7 +259,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
             </div>
           ) : (
             /* Active Guessing Options Buttons */
-            <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-6 sm:p-8 space-y-6">
+            <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-5 sm:p-7 space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Click an option or press [1 - {category.options.length}] on your keyboard:
@@ -259,40 +269,46 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                 {category.options.map((opt) => (
                   <button
                     key={opt.id}
                     id={`guess-option-${opt.id}`}
                     onClick={() => handleLockIn(opt.id)}
-                    className="group relative flex flex-col p-6 rounded-3xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5 active:translate-y-0"
+                    className="group relative flex flex-col p-4 sm:p-5 rounded-2xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5 active:translate-y-0"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="w-8 h-8 rounded-lg bg-slate-800 group-hover:bg-indigo-500 group-hover:text-white font-mono font-black text-sm flex items-center justify-center text-slate-400 transition">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-800 group-hover:bg-indigo-500 group-hover:text-white font-mono font-black text-xs sm:text-sm flex items-center justify-center text-slate-400 transition">
                         {opt.keyNumber}
                       </span>
-                      <span className="text-4xl group-hover:scale-110 transition-transform">
+                      <span className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform">
                         {opt.icon}
                       </span>
                     </div>
 
-                    <div className="font-black text-white text-lg group-hover:text-indigo-200">
+                    <div className="font-black text-white text-base sm:text-lg group-hover:text-indigo-200">
                       {opt.name}
                     </div>
 
+                    {opt.japanese && (
+                      <div className="text-xs text-slate-400 font-medium mt-0.5 tracking-normal">
+                        {opt.japanese}
+                      </div>
+                    )}
+
                     {opt.phonetic && (
-                      <div className="text-xs text-indigo-300/70 font-mono mt-0.5">
+                      <div className="text-[10px] text-indigo-300/60 font-mono mt-0.5">
                         {opt.phonetic}
                       </div>
                     )}
 
-                    <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-bold text-indigo-300">
-                      <span>Click or press [{opt.keyNumber}]</span>
+                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-bold text-indigo-300">
+                      <span>[{opt.keyNumber}]</span>
                       <Zap className="w-3.5 h-3.5 text-orange-400 opacity-0 group-hover:opacity-100 transition" />
                     </div>
 
                     {/* Bottom geometric accent bar */}
-                    <div className="absolute bottom-0 left-0 w-full h-1.5 bg-slate-900">
+                    <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-900">
                       <div className="h-full bg-indigo-500 w-0 group-hover:w-full transition-all duration-300"></div>
                     </div>
                   </button>

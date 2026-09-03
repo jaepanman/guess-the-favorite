@@ -1,5 +1,5 @@
 import { GameRoomState, Player, CategoryId, GameSettings, RoundResult, ClientMessage } from '../types';
-import { CATEGORY_ORDER, GAME_CATEGORIES } from '../gameData';
+import { CATEGORY_ORDER, GAME_CATEGORIES, getRandomOptionsForCategory } from '../gameData';
 
 const DEFAULT_SETTINGS: GameSettings = {
   autoRandomPresenter: false,
@@ -45,7 +45,7 @@ function notifyListeners() {
 }
 
 function createInitialState(code: string): GameRoomState {
-  const initialCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
+  const initialCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
   return {
     code: (code || 'EFL1').toUpperCase(),
     stage: 'LOBBY',
@@ -316,7 +316,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     case 'START_GAME': {
       clearLocalBotTimers();
       localState.roundIndex = 0;
-      localState.currentCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
+      localState.currentCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
       localState.stage = 'PRESENTER_SELECTING';
       localState.presenterChoice = null;
       localState.guessPhaseStartTime = null;
@@ -401,7 +401,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
 
       localState.roundIndex = nextIndex;
       const nextCatId = msg.categoryId || localState.categories[nextIndex];
-      localState.currentCategory = GAME_CATEGORIES[nextCatId] || GAME_CATEGORIES.sport;
+      localState.currentCategory = getRandomOptionsForCategory(nextCatId, 5);
       localState.stage = 'PRESENTER_SELECTING';
       localState.presenterChoice = null;
       localState.guessPhaseStartTime = null;
@@ -504,10 +504,17 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
       break;
     }
 
+    case 'END_GAME': {
+      clearLocalBotTimers();
+      localState.stage = 'GAME_OVER';
+      notifyListeners();
+      break;
+    }
+
     case 'RESET_GAME': {
       clearLocalBotTimers();
       localState.roundIndex = 0;
-      localState.currentCategory = GAME_CATEGORIES.sport;
+      localState.currentCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
       localState.presenterChoice = null;
       localState.guessPhaseStartTime = null;
       localState.stage = 'LOBBY';

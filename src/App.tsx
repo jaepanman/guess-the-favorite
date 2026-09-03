@@ -35,6 +35,7 @@ export default function App() {
     updateSettings,
     addDemoBots,
     removeDemoBots,
+    endGame,
     resetGame,
   } = useGameSocket();
 
@@ -157,6 +158,7 @@ export default function App() {
             onNextRound={(catId) => nextRound(roomCode, catId)}
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
+            onEndGame={() => endGame(roomCode)}
           />
         )}
 
@@ -214,6 +216,7 @@ export default function App() {
           onSetPresenter={(pId) => setPresenter(roomCode, pId)}
           onAddBots={(count) => addDemoBots(roomCode, count)}
           onRemoveBots={() => removeDemoBots(roomCode)}
+          onEndGame={() => endGame(roomCode)}
           onResetGame={() => resetGame(roomCode)}
           onJumpToCategory={(catId: CategoryId) => nextRound(roomCode, catId)}
           onOpenServerModal={() => setIsServerModalOpen(true)}

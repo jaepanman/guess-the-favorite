@@ -410,6 +410,10 @@ export function useGameSocket() {
     send({ type: 'REMOVE_DEMO_BOTS', roomCode });
   }, [send]);
 
+  const endGame = useCallback((roomCode: string) => {
+    send({ type: 'END_GAME', roomCode });
+  }, [send]);
+
   const resetGame = useCallback((roomCode: string) => {
     send({ type: 'RESET_GAME', roomCode });
   }, [send]);
@@ -441,6 +445,7 @@ export function useGameSocket() {
     updateSettings,
     addDemoBots,
     removeDemoBots,
+    endGame,
     resetGame,
   };
 }

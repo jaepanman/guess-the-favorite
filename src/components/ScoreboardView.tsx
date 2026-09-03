@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, TrendingUp, TrendingDown, Minus, Crown, ArrowRight, Shuffle, UserCheck, Play } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Minus, Crown, ArrowRight, Shuffle, Target, Eye, EyeOff, Flag } from 'lucide-react';
 import { GameRoomState, Player, CategoryId } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES, AVAILABLE_COLORS } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -11,6 +11,7 @@ interface ScoreboardViewProps {
   onNextRound: (categoryId?: CategoryId) => void;
   onPickRandomPresenter: () => void;
   onSetPresenter: (playerId: string) => void;
+  onEndGame?: () => void;
 }
 
 export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
@@ -19,6 +20,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   onNextRound,
   onPickRandomPresenter,
   onSetPresenter,
+  onEndGame,
 }) => {
   const allPlayers: Player[] = (Object.values(roomState.players) as Player[]).sort((a, b) => b.score - a.score);
   const nextRoundIndex = roomState.roundIndex + 1;
@@ -27,6 +29,37 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   const nextCategory = nextCatId ? GAME_CATEGORIES[nextCatId] : null;
 
   const currentPresenter = roomState.presenterId ? roomState.players[roomState.presenterId] : null;
+
+  // Auto-scroll / player focus tracking
+  const [autoFollow, setAutoFollow] = useState<boolean>(true);
+  const myRowRef = useRef<HTMLDivElement | null>(null);
+
+  const myRank = myPlayer ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1 : 0;
+
+  useEffect(() => {
+    if (!autoFollow || !myPlayer) return;
+
+    // Small delay to allow the spring reorder animation to start before scrolling smoothly
+    const timer = setTimeout(() => {
+      if (myRowRef.current) {
+        myRowRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [myPlayer?.score, myRank, autoFollow, roomState.roundIndex]);
+
+  const handleScrollToMe = () => {
+    if (myRowRef.current) {
+      myRowRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -104,13 +137,54 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
       )}
 
       {/* Complete Leaderboard List with Rank Shift Animation */}
-      <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-4 sm:p-6 space-y-2">
-        <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 px-4 py-1.5 flex items-center justify-between border-b border-white/5">
+      <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-4 sm:p-6 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-black uppercase tracking-wider text-white">
+              Full Class Standings ({allPlayers.length})
+            </span>
+            {myPlayer && (
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs border border-indigo-500/30">
+                You: #{myRank}
+              </span>
+            )}
+          </div>
+
+          {/* Auto-scroll & Focus Controls (especially for ~30 students) */}
+          {myPlayer && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleScrollToMe}
+                id="jump-to-my-rank-btn"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold border border-indigo-500/30 transition cursor-pointer"
+                title="Scroll screen to focus on your player card"
+              >
+                <Target className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Follow Me</span>
+              </button>
+              <button
+                onClick={() => setAutoFollow(!autoFollow)}
+                id="toggle-auto-follow-btn"
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                  autoFollow
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-white/10'
+                }`}
+                title="Automatically scroll the screen to keep following your position as you rise or fall"
+              >
+                {autoFollow ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span>{autoFollow ? 'Auto-Follow: ON' : 'Auto-Follow: OFF'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 px-4 py-1 flex items-center justify-between">
           <span>Player & Ranking</span>
           <span>Score & Changes</span>
         </div>
 
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2 pt-1 max-h-[580px] overflow-y-auto pr-1">
           {allPlayers.map((player, index) => {
             const currentRank = index + 1;
             const prevRank = player.previousRank || currentRank;
@@ -121,11 +195,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
             return (
               <motion.div
                 key={player.id}
+                ref={isMe ? myRowRef : undefined}
                 layout
                 transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition ${
                   isMe
-                    ? 'border-indigo-500/60 bg-indigo-500/15 ring-1 ring-indigo-500/30'
+                    ? 'border-indigo-500/80 bg-indigo-500/20 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-500/20'
                     : 'border-white/5 bg-slate-800/40 hover:bg-slate-800/70'
                 }`}
               >
@@ -230,8 +305,27 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
           </div>
         </div>
 
-        {/* Next Question Action Button */}
-        <div className="pt-2 flex justify-end">
+        {/* Next Question & Teacher End Game Action Buttons */}
+        <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+          {/* Teacher early end game button */}
+          {(myPlayer?.isTeacher || roomState.players[myPlayer?.id || '']?.isTeacher) && onEndGame ? (
+            <button
+              onClick={() => {
+                if (window.confirm('End the game now and jump straight to the final podium and results?')) {
+                  playSelectSound();
+                  onEndGame();
+                }
+              }}
+              id="teacher-end-game-btn"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 hover:text-rose-200 font-bold text-xs sm:text-sm transition cursor-pointer"
+            >
+              <Flag className="w-4 h-4 text-rose-400" />
+              <span>End Game (Show Results)</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
           <button
             onClick={() => onNextRound(nextCatId || undefined)}
             id="start-next-round-btn"

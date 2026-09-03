@@ -3,7 +3,7 @@ import path from 'path';
 import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
-import { GAME_CATEGORIES, CATEGORY_ORDER } from './src/gameData';
+import { GAME_CATEGORIES, CATEGORY_ORDER, getRandomOptionsForCategory } from './src/gameData';
 import { 
   GameRoomState, 
   Player, 
@@ -50,7 +50,7 @@ function getOrCreateRoom(code: string): ServerRoom {
   const normalizedCode = (code || 'EFL1').toUpperCase().trim();
   let room = rooms.get(normalizedCode);
   if (!room) {
-    const initialCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
+    const initialCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
     const state: GameRoomState = {
       code: normalizedCode,
       stage: 'LOBBY',
@@ -392,7 +392,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     case 'START_GAME': {
       clearRoomTimers(room);
       room.state.roundIndex = 0;
-      const initialCategory = GAME_CATEGORIES[CATEGORY_ORDER[0]];
+      const initialCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
       room.state.currentCategory = initialCategory;
       room.state.stage = 'PRESENTER_SELECTING';
       room.state.presenterChoice = null;
@@ -479,7 +479,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
 
       room.state.roundIndex = nextIndex;
       const nextCatId = msg.categoryId || CATEGORY_ORDER[nextIndex % CATEGORY_ORDER.length];
-      room.state.currentCategory = GAME_CATEGORIES[nextCatId] || GAME_CATEGORIES.sport;
+      room.state.currentCategory = getRandomOptionsForCategory(nextCatId, 5);
       room.state.presenterChoice = null;
       room.state.guessPhaseStartTime = null;
       room.state.stage = 'PRESENTER_SELECTING';
@@ -586,10 +586,16 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
       break;
     }
 
+    case 'END_GAME': {
+      clearRoomTimers(room);
+      room.state.stage = 'GAME_OVER';
+      break;
+    }
+
     case 'RESET_GAME': {
       clearRoomTimers(room);
       room.state.roundIndex = 0;
-      room.state.currentCategory = GAME_CATEGORIES.sport;
+      room.state.currentCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
       room.state.presenterChoice = null;
       room.state.guessPhaseStartTime = null;
       room.state.stage = 'LOBBY';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server } from 'lucide-react';
+import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server, Flag } from 'lucide-react';
 import { GameRoomState, CategoryId, Player } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -13,6 +13,7 @@ interface TeacherSettingsModalProps {
   onSetPresenter: (playerId: string) => void;
   onAddBots: (count: number) => void;
   onRemoveBots: () => void;
+  onEndGame?: () => void;
   onResetGame: () => void;
   onJumpToCategory: (catId: CategoryId) => void;
   onOpenServerModal?: () => void;
@@ -27,6 +28,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
   onSetPresenter,
   onAddBots,
   onRemoveBots,
+  onEndGame,
   onResetGame,
   onJumpToCategory,
   onOpenServerModal,
@@ -248,18 +250,34 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={() => {
-              if (confirm('Reset the game back to the lobby? All current scores will be cleared.')) {
-                onResetGame();
-                onClose();
-              }
-            }}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/30 flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Game
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {onEndGame && roomState.stage !== 'LOBBY' && roomState.stage !== 'GAME_OVER' && (
+              <button
+                onClick={() => {
+                  if (confirm('End the game now and jump straight to the results and podium?')) {
+                    onEndGame();
+                    onClose();
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/40 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Flag className="w-3.5 h-3.5" />
+                End Game (Show Results)
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (confirm('Reset the game back to the lobby? All current scores will be cleared.')) {
+                  onResetGame();
+                  onClose();
+                }
+              }}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Game
+            </button>
+          </div>
         </div>
       </div>
     </div>
