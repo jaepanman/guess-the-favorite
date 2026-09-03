@@ -168,6 +168,14 @@ export function useGameSocket() {
           const msg: ServerMessage = JSON.parse(event.data);
           if (msg.type === 'ROOM_STATE') {
             setRoomState(msg.state);
+            // If our local player is no longer in this room (e.g. server restarted or room reset), clean up
+            setMyPlayerId((prevId) => {
+              if (prevId && (!msg.state.players || !msg.state.players[prevId])) {
+                localStorage.removeItem('efl_player_id');
+                return null;
+              }
+              return prevId;
+            });
           } else if (msg.type === 'JOIN_SUCCESS') {
             setMyPlayerId(msg.playerId);
             localStorage.setItem('efl_player_id', msg.playerId);
@@ -185,7 +193,7 @@ export function useGameSocket() {
         if (!isMountedRef.current) return;
         setIsLiveConnected(false);
 
-        // Schedule auto-reconnect cleanly
+        // Schedule auto-reconnect cleanly without clearing active roomState
         if (!reconnectTimerRef.current) {
           reconnectTimerRef.current = setTimeout(() => {
             reconnectTimerRef.current = null;
@@ -304,7 +312,7 @@ export function useGameSocket() {
     const cleanCode = (roomCode.trim() || 'EFL1').toUpperCase();
     const storedPlayerId = localStorage.getItem('efl_player_id') || undefined;
 
-    // 1. If WebSocket is connected, send JOIN_ROOM
+    // 1. If WebSocket is connected, send JOIN_ROOM directly
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
         type: 'JOIN_ROOM',
@@ -315,10 +323,10 @@ export function useGameSocket() {
         isTeacher,
         playerId: storedPlayerId,
       }));
+      return;
     }
 
-    // 2. Try REST join endpoint
-    let restSuccess = false;
+    // 2. Try REST join endpoint if WebSocket is not open
     try {
       const res = await fetch(resolveHttpUrl(serverUrl, '/api/room/join'), {
         method: 'POST',
@@ -342,22 +350,20 @@ export function useGameSocket() {
         if (data.state) {
           setRoomState(data.state);
           setIsLocalMode(false);
-          restSuccess = true;
+          return;
         }
       }
     } catch {
-      restSuccess = false;
+      // Network join failed, fallback to local below
     }
 
-    // 3. If neither WS nor REST responded, run in local classroom mode!
-    if (!restSuccess && (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN)) {
-      setIsLocalMode(true);
-      const { player, state } = localJoin(cleanCode, name, avatar, favoriteColor, isTeacher, storedPlayerId);
-      setMyPlayerId(player.id);
-      localStorage.setItem('efl_player_id', player.id);
-      localStorage.setItem('efl_room_code', cleanCode);
-      setRoomState(state);
-    }
+    // 3. Fallback: run in local in-browser classroom mode
+    setIsLocalMode(true);
+    const { player, state } = localJoin(cleanCode, name, avatar, favoriteColor, isTeacher, storedPlayerId);
+    setMyPlayerId(player.id);
+    localStorage.setItem('efl_player_id', player.id);
+    localStorage.setItem('efl_room_code', cleanCode);
+    setRoomState(state);
   }, [serverUrl]);
 
   const startGame = useCallback((roomCode: string) => {
