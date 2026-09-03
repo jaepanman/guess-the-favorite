@@ -276,23 +276,62 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({
           </div>
         )}
 
-        {/* TAB 3: Render & Vercel Reference */}
+        {/* TAB 3: Render Deployment Guide */}
         {activeTab === 'render' && (
           <div className="space-y-4 text-xs">
-            <div className="p-4 rounded-2xl bg-slate-800/40 border border-white/10 space-y-2 text-slate-300 leading-relaxed">
+            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2 text-slate-300 leading-relaxed">
               <div className="font-bold text-white flex items-center gap-2">
                 <Globe className="w-4 h-4 text-indigo-400" />
-                Why Google Cloud Run is better than Render or Vercel:
+                Render Setup Guide (Fix for &apos;dist/server.cjs not found&apos;)
               </div>
               <p>
-                1. <strong>No Cold-Start Sleeping</strong>: Free Render instances sleep after 15 minutes of inactivity and take 60 seconds to wake up, which disrupts classroom games.
+                Render defaults to running only <code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">npm install</code> (or <code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">bun install</code>), which does not compile the Vite frontend or the Express server bundle.
               </p>
-              <p>
-                2. <strong>Native WebSockets & HTTP/2</strong>: Google Cloud Run supports persistent bidirectional WebSockets, automatic SSL, and global low latency.
-              </p>
-              <p>
-                3. <strong>Full-Stack in One URL</strong>: Unlike Vercel (which only hosts static assets and kills long-running connections), Cloud Run serves both your frontend and your backend in one single deployment.
-              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-800/60 border border-white/10 space-y-3">
+              <div className="font-bold text-white text-xs uppercase tracking-wider">
+                Required Settings in Render Dashboard:
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Build Command</span>
+                    <code className="text-emerald-400 font-mono font-bold text-xs">npm install && npm run build</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('npm install && npm run build', 'render-build')}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition shrink-0 cursor-pointer"
+                    title="Copy Build Command"
+                  >
+                    {copied === 'render-build' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Start Command</span>
+                    <code className="text-emerald-400 font-mono font-bold text-xs">npm start</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('npm start', 'render-start')}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition shrink-0 cursor-pointer"
+                    title="Copy Start Command"
+                  >
+                    {copied === 'render-start' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/10">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Auto-Recovery Included</span>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    We also added an automatic self-healing startup script (<code className="text-indigo-300">start.cjs</code>). Even if Render runs only <code className="text-indigo-300">npm install</code> during build, it will detect the missing files and build the project automatically before starting!
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
