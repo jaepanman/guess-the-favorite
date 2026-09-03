@@ -1,0 +1,6 @@
+{
+  "name": "EFL Favorites Guessing Game",
+  "description": "Simultaneous real-time multiplayer EFL classroom game where students practice speaking English, answer favorite questions, and guess peers' choices with speed scoring and presenter rotation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
