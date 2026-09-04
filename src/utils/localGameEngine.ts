@@ -93,22 +93,39 @@ function calculateRoundScores() {
 
   const guessesRecord: Record<string, { optionId: string; elapsedMs: number; isCorrect: boolean; points: number }> = {};
   const optionCounts: Record<string, { count: number; playerIds: string[] }> = {};
+  const timedOutPlayerIds: string[] = [];
 
   localState.currentCategory.options.forEach(opt => {
     optionCounts[opt.id] = { count: 0, playerIds: [] };
   });
 
   let incorrectGuessesCount = 0;
+  const timeLimitMs = (localState.settings.timeLimitSeconds || 15) * 1000;
 
   Object.values(localState.players).forEach(player => {
     if (player.id === localState.presenterId) return;
 
     const guess = player.currentGuess;
-    const elapsed = player.guessElapsedMs ?? (localState.settings.timeLimitSeconds * 1000);
+    const elapsed = player.guessElapsedMs;
+    const hasAnsweredInTime = Boolean(guess && elapsed !== null && elapsed !== undefined && elapsed <= timeLimitMs);
 
-    if (guess && optionCounts[guess]) {
+    if (hasAnsweredInTime && guess && optionCounts[guess]) {
       optionCounts[guess].count += 1;
       optionCounts[guess].playerIds.push(player.id);
+    }
+
+    if (!hasAnsweredInTime) {
+      // Ineligible for points: student did not choose an answer within 15 seconds
+      timedOutPlayerIds.push(player.id);
+      incorrectGuessesCount += 1;
+      player.roundScore = 0;
+      player.lastScoreBreakdown = {
+        base: 0,
+        speedBonus: 0,
+        isCorrect: false,
+        timedOut: true,
+      };
+      return;
     }
 
     const isCorrect = guess === correctOptionId;
@@ -116,7 +133,6 @@ function calculateRoundScores() {
     let speedBonus = 0;
 
     if (isCorrect) {
-      const timeLimitMs = localState.settings.timeLimitSeconds * 1000;
       const speedRatio = Math.max(0, Math.min(1, 1 - (elapsed / timeLimitMs)));
       speedBonus = Math.round(localState.settings.maxSpeedBonus * speedRatio);
       pointsAwarded = localState.settings.baseCorrectPoints + speedBonus;
@@ -130,6 +146,7 @@ function calculateRoundScores() {
       base: isCorrect ? localState.settings.baseCorrectPoints : 0,
       speedBonus,
       isCorrect,
+      timedOut: false,
     };
 
     if (guess) {
@@ -169,6 +186,7 @@ function calculateRoundScores() {
     presenterChoice: correctOptionId,
     guesses: guessesRecord,
     optionCounts,
+    timedOutPlayerIds,
     hostPointsEarned,
   };
 
@@ -366,9 +384,19 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
       if (playerId === localState.presenterId) break;
       if (localState.stage !== 'CLASS_GUESSING') break;
 
+      const timeLimitMs = (localState.settings.timeLimitSeconds || 15) * 1000;
+      const currentElapsed = localState.guessPhaseStartTime 
+        ? (Date.now() - localState.guessPhaseStartTime) 
+        : msg.elapsedMs;
+
+      // Strictly ineligible if submitted after the time limit (with small 250ms network jitter allowance)
+      if (currentElapsed > timeLimitMs + 250 || msg.elapsedMs > timeLimitMs + 250) {
+        break;
+      }
+
       if (player && !player.currentGuess) {
         player.currentGuess = msg.optionId;
-        player.guessElapsedMs = msg.elapsedMs;
+        player.guessElapsedMs = Math.min(timeLimitMs, msg.elapsedMs);
         notifyListeners();
         checkAllGuessedAndReveal();
       }
@@ -533,6 +561,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
         p.currentGuess = null;
         p.guessElapsedMs = null;
         p.roundScore = 0;
+        p.lastScoreBreakdown = undefined;
       });
 
       notifyListeners();

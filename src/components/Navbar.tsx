@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles, RotateCcw } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { speakEnglishPhrase } from '../utils/soundEffects';
 
@@ -7,6 +7,7 @@ interface NavbarProps {
   roomState: GameRoomState | null;
   myPlayer: Player | undefined;
   onOpenSettings?: () => void;
+  onResetGame?: () => void;
   isLiveConnected?: boolean;
   isLocalMode?: boolean;
   onOpenServerModal?: () => void;
@@ -16,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   roomState,
   myPlayer,
   onOpenSettings,
+  onResetGame,
   isLiveConnected,
   isLocalMode,
   onOpenServerModal,
@@ -164,6 +166,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Quick Reset Game Button (active during game) */}
+          {roomState && roomState.stage !== 'LOBBY' && onResetGame && (
+            <button
+              onClick={() => {
+                if (window.confirm('End the current game immediately (without showing results) and return everyone to the main setup screen?')) {
+                  onResetGame();
+                }
+              }}
+              id="navbar-reset-game-btn"
+              title="End current game without showing results and return everyone to the main setup screen"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Reset Game</span>
+              <span className="sm:hidden">Reset</span>
+            </button>
           )}
 
           {/* Settings / Teacher drawer trigger */}

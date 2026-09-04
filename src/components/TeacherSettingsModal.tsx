@@ -262,23 +262,24 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                     onClose();
                   }
                 }}
-                className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/40 flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 flex items-center gap-1.5 cursor-pointer"
               >
-                <Flag className="w-3.5 h-3.5" />
-                End Game (Show Results)
+                <Flag className="w-3.5 h-3.5 text-amber-400" />
+                End (Show Results)
               </button>
             )}
             <button
               onClick={() => {
-                if (confirm('Reset the game back to the lobby? All current scores will be cleared.')) {
+                if (confirm('End the current game immediately (without showing results) and return everyone to the main setup screen? All scores will be cleared.')) {
                   onResetGame();
                   onClose();
                 }
               }}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer"
+              id="modal-reset-game-btn"
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold border border-rose-500/40 flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Game
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              Reset Game (End without Results)
             </button>
           </div>
         </div>

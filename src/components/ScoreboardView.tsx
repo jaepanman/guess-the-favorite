@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, TrendingUp, TrendingDown, Minus, Crown, ArrowRight, Shuffle, Target, Eye, EyeOff, Flag } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Minus, Crown, ArrowRight, Shuffle, Target, Eye, EyeOff, Flag, RotateCcw } from 'lucide-react';
 import { GameRoomState, Player, CategoryId } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES, AVAILABLE_COLORS } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -12,6 +12,7 @@ interface ScoreboardViewProps {
   onPickRandomPresenter: () => void;
   onSetPresenter: (playerId: string) => void;
   onEndGame?: () => void;
+  onResetGame?: () => void;
 }
 
 export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
@@ -21,6 +22,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   onPickRandomPresenter,
   onSetPresenter,
   onEndGame,
+  onResetGame,
 }) => {
   const allPlayers: Player[] = (Object.values(roomState.players) as Player[]).sort((a, b) => b.score - a.score);
   const nextRoundIndex = roomState.roundIndex + 1;
@@ -265,9 +267,17 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                   <div className="font-mono font-black text-white text-base sm:text-lg">
                     {player.score} <span className="text-xs text-slate-400 font-normal">pts</span>
                   </div>
-                  {player.roundScore !== undefined && player.roundScore > 0 && (
+                  {player.lastScoreBreakdown?.timedOut ? (
+                    <div className="text-[11px] font-mono font-bold text-rose-400">
+                      Timed out (0 pts)
+                    </div>
+                  ) : player.roundScore !== undefined && player.roundScore > 0 ? (
                     <div className="text-xs font-mono font-bold text-emerald-400">
                       +{player.roundScore} this round
+                    </div>
+                  ) : (
+                    <div className="text-[11px] font-mono text-slate-500">
+                      +0 this round
                     </div>
                   )}
                 </div>
@@ -307,24 +317,39 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
 
         {/* Next Question & Teacher End Game Action Buttons */}
         <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-          {/* Teacher early end game button */}
-          {(myPlayer?.isTeacher || roomState.players[myPlayer?.id || '']?.isTeacher) && onEndGame ? (
-            <button
-              onClick={() => {
-                if (window.confirm('End the game now and jump straight to the final podium and results?')) {
-                  playSelectSound();
-                  onEndGame();
-                }
-              }}
-              id="teacher-end-game-btn"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 hover:text-rose-200 font-bold text-xs sm:text-sm transition cursor-pointer"
-            >
-              <Flag className="w-4 h-4 text-rose-400" />
-              <span>End Game (Show Results)</span>
-            </button>
-          ) : (
-            <div />
-          )}
+          {/* Action buttons: Reset without results, or teacher end game */}
+          <div className="flex flex-wrap items-center gap-2">
+            {onResetGame && (
+              <button
+                onClick={() => {
+                  if (window.confirm('End the current game now (without showing results) and return everyone to the main setup screen?')) {
+                    playSelectSound();
+                    onResetGame();
+                  }
+                }}
+                id="scoreboard-reset-game-btn"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 hover:text-rose-200 font-bold text-xs sm:text-sm transition cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-rose-400" />
+                <span>Reset Game (End without Results)</span>
+              </button>
+            )}
+            {(myPlayer?.isTeacher || roomState.players[myPlayer?.id || '']?.isTeacher) && onEndGame && (
+              <button
+                onClick={() => {
+                  if (window.confirm('End the game now and jump straight to the final podium and results?')) {
+                    playSelectSound();
+                    onEndGame();
+                  }
+                }}
+                id="teacher-end-game-btn"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white font-bold text-xs sm:text-sm transition cursor-pointer"
+              >
+                <Flag className="w-4 h-4 text-amber-400" />
+                <span>End Game (Show Results)</span>
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => onNextRound(nextCatId || undefined)}

@@ -40,6 +40,7 @@ export interface Player {
     hostBonus?: number;
     incorrectCount?: number;
     isCorrect?: boolean;
+    timedOut?: boolean;
   };
 }
 
@@ -59,6 +60,7 @@ export interface RoundResult {
   presenterChoice: string;
   guesses: Record<string, { optionId: string; elapsedMs: number; isCorrect: boolean; points: number }>;
   optionCounts: Record<string, { count: number; playerIds: string[] }>;
+  timedOutPlayerIds?: string[];
   hostPointsEarned: number;
 }
 

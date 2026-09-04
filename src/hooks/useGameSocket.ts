@@ -418,6 +418,11 @@ export function useGameSocket() {
     send({ type: 'RESET_GAME', roomCode });
   }, [send]);
 
+  const leaveRoom = useCallback(() => {
+    localStorage.removeItem('efl_player_id');
+    setMyPlayerId(null);
+  }, []);
+
   // Current player identification
   const myPlayer: Player | undefined = roomState && myPlayerId ? roomState.players[myPlayerId] : undefined;
 
@@ -434,6 +439,7 @@ export function useGameSocket() {
     myPlayer,
     error,
     joinRoom,
+    leaveRoom,
     startGame,
     makePresenterChoice,
     submitGuess,

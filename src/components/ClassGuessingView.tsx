@@ -54,10 +54,13 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
     return () => clearInterval(interval);
   }, [startTime, timeLimitMs, isPresenter, myPlayer?.isTeacher, onTriggerReveal]);
 
+  const isTimeUp = elapsedMs >= timeLimitMs;
+  const isTimedOut = isTimeUp && !selectedGuess;
+
   // Handle student guess lock-in
   const handleLockIn = (optId: string) => {
-    if (selectedGuess || isPresenter) return;
-    const currentElapsed = Math.max(200, Date.now() - startTime);
+    if (selectedGuess || isPresenter || isTimeUp) return;
+    const currentElapsed = Math.min(timeLimitMs, Math.max(200, Date.now() - startTime));
     setSelectedGuess(optId);
     setLockedTime(currentElapsed);
     playLockInSound();
@@ -66,7 +69,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
 
   // Keyboard number shortcuts (1-5) for students
   useEffect(() => {
-    if (isPresenter || selectedGuess) return;
+    if (isPresenter || selectedGuess || isTimeUp) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const num = parseInt(e.key, 10);
@@ -80,7 +83,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPresenter, selectedGuess, category.options]);
+  }, [isPresenter, selectedGuess, isTimeUp, category.options]);
 
   const remainingMs = Math.max(0, timeLimitMs - elapsedMs);
   const remainingSeconds = (remainingMs / 1000).toFixed(1);
@@ -265,14 +268,51 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
                 Waiting for the grand reveal once all students finish...
               </p>
             </div>
+          ) : isTimedOut ? (
+            /* Student Did Not Answer in Time - Ineligible for Points */
+            <div className="bg-rose-950/40 border-2 border-rose-500/50 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xl backdrop-blur-md">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-3xl mx-auto shadow-inner">
+                <AlertCircle className="w-9 h-9 text-rose-400" />
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  Participation Rule Enforced
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-white pt-1">
+                  Time&apos;s Up! No Answer Submitted ⏰
+                </h2>
+                <p className="text-rose-200 text-sm sm:text-base max-w-md mx-auto">
+                  You didn&apos;t choose an answer within the 15-second countdown.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-200 font-bold text-sm">
+                <Lock className="w-4 h-4 text-rose-400" />
+                <span>Ineligible for Points This Round: <strong className="font-mono text-white text-base">0 pts</strong></span>
+              </div>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Not submitting an answer prevents scoring points. Be ready to click your guess quickly next round to get back in the game!
+              </p>
+            </div>
           ) : (
             /* Active Guessing Options Buttons */
             <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-5 sm:p-7 space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Click an option or press [1 - {category.options.length}] on your keyboard:
-                </span>
-                <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-md">
+              {/* Participation Rule Notice & Hotkeys */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Click an option or press [1 - {category.options.length}]:
+                  </span>
+                  {remainingMs < 5000 ? (
+                    <span className="text-[11px] font-bold text-rose-400 bg-rose-500/20 border border-rose-500/30 px-2.5 py-0.5 rounded-md animate-pulse">
+                      ⚠️ Hurry! Time running out!
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+                      15s limit (Must answer to score)
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-md self-start sm:self-auto">
                   HOTKEYS [1-{category.options.length}]
                 </span>
               </div>

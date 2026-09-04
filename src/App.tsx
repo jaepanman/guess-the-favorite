@@ -24,6 +24,7 @@ export default function App() {
     myPlayer,
     error,
     joinRoom,
+    leaveRoom,
     startGame,
     makePresenterChoice,
     submitGuess,
@@ -75,6 +76,7 @@ export default function App() {
         roomState={roomState}
         myPlayer={myPlayer}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onResetGame={() => resetGame(roomCode)}
         isLiveConnected={isLiveConnected}
         isLocalMode={isLocalMode}
         onOpenServerModal={() => setIsServerModalOpen(true)}
@@ -115,6 +117,7 @@ export default function App() {
             roomState={roomState}
             myPlayer={myPlayer}
             onJoin={(code, name, avatar, color, isTeacher) => joinRoom(code, name, avatar, color, isTeacher)}
+            onLeaveRoom={leaveRoom}
             onStartGame={() => startGame(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
@@ -159,6 +162,7 @@ export default function App() {
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
             onEndGame={() => endGame(roomCode)}
+            onResetGame={() => resetGame(roomCode)}
           />
         )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Crown, Shuffle, Play, Plus, Trash2, Users, Sparkles, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Crown, Shuffle, Play, Plus, Trash2, Users, Sparkles, CheckCircle2, ShieldAlert, LogOut } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { AVAILABLE_AVATARS, AVAILABLE_COLORS } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -8,6 +8,7 @@ interface LobbyViewProps {
   roomState: GameRoomState | null;
   myPlayer: Player | undefined;
   onJoin: (roomCode: string, name: string, avatar: string, favoriteColor: string, isTeacher: boolean) => void;
+  onLeaveRoom?: () => void;
   onStartGame: () => void;
   onSetPresenter: (playerId: string) => void;
   onPickRandomPresenter: () => void;
@@ -20,6 +21,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   roomState,
   myPlayer,
   onJoin,
+  onLeaveRoom,
   onStartGame,
   onSetPresenter,
   onPickRandomPresenter,
@@ -210,9 +212,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           <div className="bg-slate-900/60 rounded-3xl border border-white/10 backdrop-blur-md p-6 sm:p-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black uppercase tracking-wider">
-                    GAME LOBBY OPEN
+                    MAIN SETUP SCREEN &bull; GAME LOBBY
                   </span>
                   <span className="text-xs font-mono font-bold text-slate-400">
                     CODE: <strong className="text-indigo-400 text-sm font-black">{roomState?.code}</strong>
@@ -222,12 +224,23 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   Ready to Practice Speaking!
                 </h2>
                 <p className="text-slate-400 text-sm mt-1">
-                  Students will ask &quot;What ___ do you like?&quot; and guess the presenter&apos;s answer for quick-speed points!
+                  Main Game Setup: Pick who presents first, review joined students, and click Start Round 1 when ready!
                 </p>
               </div>
 
-              {/* Start Game Button (Teacher or Presenter) */}
-              <div className="flex flex-col sm:flex-row gap-2">
+              {/* Start Game Button (Teacher or Presenter) & Leave/Change Profile */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {onLeaveRoom && (
+                  <button
+                    onClick={onLeaveRoom}
+                    id="leave-room-btn"
+                    title="Change nickname or avatar"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 transition cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Change Profile</span>
+                  </button>
+                )}
                 <button
                   onClick={onStartGame}
                   id="start-game-btn"

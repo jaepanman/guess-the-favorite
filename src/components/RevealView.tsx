@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Volume2, Award, Zap, Crown, Users, ArrowRight, ShieldCheck, CheckCircle, XCircle } from 'lucide-react';
+import { Volume2, Award, Zap, Crown, Users, ArrowRight, ShieldCheck, CheckCircle, XCircle, AlertCircle, Clock } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { playCelebrationSound, speakEnglishPhrase } from '../utils/soundEffects';
 
@@ -39,9 +39,20 @@ export const RevealView: React.FC<RevealViewProps> = ({
   const guessers: Player[] = allPlayers.filter(p => p.id !== roomState.presenterId);
   const totalGuessers = guessers.length;
 
+  // Timed out players who didn't submit an answer within 15 seconds
+  const timedOutPlayerIds = lastResult?.timedOutPlayerIds || guessers.filter(p => !p.currentGuess).map(p => p.id);
+  const timedOutGuessers = timedOutPlayerIds.map(id => roomState.players[id]).filter(Boolean);
+
   // Presenter host compensation details
   const hostIncorrectCount = presenter?.lastScoreBreakdown?.incorrectCount ?? 0;
   const hostBonusEarned = presenter?.roundScore ?? 0;
+
+  // My player outcome
+  const isPresenter = Boolean(myPlayer && myPlayer.id === roomState.presenterId);
+  const myGuess = myPlayer?.currentGuess;
+  const myGuessOption = category.options.find(o => o.id === myGuess);
+  const myTimedOut = Boolean(myPlayer?.lastScoreBreakdown?.timedOut || (!isPresenter && !myGuess));
+  const myIsCorrect = Boolean(myPlayer?.lastScoreBreakdown?.isCorrect);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -97,6 +108,71 @@ export const RevealView: React.FC<RevealViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Personal Round Result Banner */}
+      {myPlayer && (
+        <div className={`p-5 sm:p-6 rounded-3xl border shadow-lg backdrop-blur-md transition ${
+          isPresenter
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+            : myTimedOut
+            ? 'bg-rose-950/40 border-rose-500/50 text-rose-200'
+            : myIsCorrect
+            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+            : 'bg-slate-900/60 border-white/10 text-slate-300'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-md ${
+                isPresenter
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : myTimedOut
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                  : myIsCorrect
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-slate-800 text-slate-300 border border-white/10'
+              }`}>
+                {isPresenter ? '👑' : myTimedOut ? <Clock className="w-6 h-6 text-rose-400" /> : myIsCorrect ? <CheckCircle className="w-6 h-6 text-emerald-400" /> : <XCircle className="w-6 h-6 text-slate-400" />}
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Your Round Outcome
+                </div>
+                <div className="text-lg sm:text-xl font-black text-white">
+                  {isPresenter ? (
+                    <span>Presenter Reward: +{hostBonusEarned} pts</span>
+                  ) : myTimedOut ? (
+                    <span className="text-rose-400">Time Expired: Ineligible for Points (0 pts)</span>
+                  ) : myIsCorrect ? (
+                    <span className="text-emerald-400">Correct Guess! +{myPlayer.roundScore || 0} pts</span>
+                  ) : (
+                    <span>Incorrect Guess (0 pts)</span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm mt-0.5 opacity-90">
+                  {isPresenter ? (
+                    `You presented ${category.label} and fooled ${hostIncorrectCount} classmates!`
+                  ) : myTimedOut ? (
+                    `You did not choose an answer within 15 seconds. Not answering makes you ineligible to score points this round. Lock in an answer next round to earn points!`
+                  ) : myIsCorrect ? (
+                    `You locked in ${myGuessOption?.name} in ${((myPlayer.guessElapsedMs || 0) / 1000).toFixed(2)}s (+${myPlayer.lastScoreBreakdown?.base} base, +${myPlayer.lastScoreBreakdown?.speedBonus} speed bonus).`
+                  ) : (
+                    `You guessed ${myGuessOption?.name || 'an option'}, but ${presenter?.name || 'the presenter'} likes ${correctOption?.name}.`
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="text-left sm:text-right shrink-0">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Score
+              </div>
+              <div className="text-2xl font-mono font-black text-white">
+                {myPlayer.score} <span className="text-xs text-slate-400 font-normal">pts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Choice Distribution Breakdown */}
       <div className="bg-slate-900/50 rounded-3xl border border-white/10 p-6 sm:p-8 space-y-4">
@@ -198,6 +274,34 @@ export const RevealView: React.FC<RevealViewProps> = ({
               </div>
             );
           })}
+
+          {/* Unanswered / Timed Out Students Row */}
+          {timedOutGuessers.length > 0 && (
+            <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/20">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Did Not Answer in Time (Ineligible for points)</span>
+                </div>
+                <span className="font-mono text-xs font-black text-rose-400 px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30">
+                  {timedOutGuessers.length} {timedOutGuessers.length === 1 ? 'student' : 'students'} (0 pts)
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {timedOutGuessers.map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-rose-500/20 text-xs font-semibold text-slate-200"
+                  >
+                    <span>{p.avatar}</span>
+                    <span>{p.name}</span>
+                    <span className="text-[10px] text-rose-400 font-bold font-mono">Timed Out</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -229,7 +333,7 @@ export const RevealView: React.FC<RevealViewProps> = ({
               <span className="font-mono text-amber-400">+200 pts</span>
             </div>
             <div className="flex justify-between">
-              <span>Tricked {hostIncorrectCount} classmates (+150 pts each):</span>
+              <span>Tricked / Timed-out Classmates ({hostIncorrectCount} &times; 150 pts):</span>
               <span className="font-mono text-amber-400">+{hostIncorrectCount * 150} pts</span>
             </div>
           </div>
