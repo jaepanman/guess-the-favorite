@@ -182,24 +182,27 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             Jump to Category
           </h3>
           <div className="grid grid-cols-4 gap-2">
-            {CATEGORY_ORDER.map((catId) => {
+            {(roomState.categories && roomState.categories.length > 0 ? roomState.categories : CATEGORY_ORDER).map((catId, idx) => {
               const cat = GAME_CATEGORIES[catId];
               const isCurrent = roomState.currentCategory.id === catId;
               return (
                 <button
-                  key={catId}
+                  key={`${catId}-${idx}`}
                   onClick={() => {
                     playSelectSound();
                     onJumpToCategory(catId);
                     onClose();
                   }}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer relative ${
                     isCurrent
                       ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500'
                       : 'border-white/10 bg-slate-850 hover:bg-slate-800 text-slate-300'
                   }`}
                 >
-                  <span className="text-xl">{cat.icon}</span>
+                  <span className="absolute top-1 left-1.5 text-[9px] font-mono font-black text-slate-500">
+                    R{idx + 1}
+                  </span>
+                  <span className="text-xl mt-1">{cat.icon}</span>
                   <span>{cat.label}</span>
                 </button>
               );

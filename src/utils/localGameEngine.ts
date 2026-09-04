@@ -1,5 +1,5 @@
 import { GameRoomState, Player, CategoryId, GameSettings, RoundResult, ClientMessage } from '../types';
-import { CATEGORY_ORDER, GAME_CATEGORIES, getRandomOptionsForCategory } from '../gameData';
+import { CATEGORY_ORDER, GAME_CATEGORIES, getRandomOptionsForCategory, getRandomizedCategoryOrder } from '../gameData';
 
 const DEFAULT_SETTINGS: GameSettings = {
   autoRandomPresenter: false,
@@ -45,12 +45,13 @@ function notifyListeners() {
 }
 
 function createInitialState(code: string): GameRoomState {
-  const initialCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
+  const randomizedCategories = getRandomizedCategoryOrder();
+  const initialCategory = getRandomOptionsForCategory(randomizedCategories[0], 5);
   return {
     code: (code || 'EFL1').toUpperCase(),
     stage: 'LOBBY',
     roundIndex: 0,
-    categories: [...CATEGORY_ORDER],
+    categories: randomizedCategories,
     currentCategory: initialCategory,
     presenterId: null,
     presenterChoice: null,
@@ -316,7 +317,9 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     case 'START_GAME': {
       clearLocalBotTimers();
       localState.roundIndex = 0;
-      localState.currentCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
+      const randomizedCategories = getRandomizedCategoryOrder();
+      localState.categories = randomizedCategories;
+      localState.currentCategory = getRandomOptionsForCategory(randomizedCategories[0], 5);
       localState.stage = 'PRESENTER_SELECTING';
       localState.presenterChoice = null;
       localState.guessPhaseStartTime = null;
@@ -514,7 +517,9 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     case 'RESET_GAME': {
       clearLocalBotTimers();
       localState.roundIndex = 0;
-      localState.currentCategory = getRandomOptionsForCategory(CATEGORY_ORDER[0], 5);
+      const randomizedCategories = getRandomizedCategoryOrder();
+      localState.categories = randomizedCategories;
+      localState.currentCategory = getRandomOptionsForCategory(randomizedCategories[0], 5);
       localState.presenterChoice = null;
       localState.guessPhaseStartTime = null;
       localState.stage = 'LOBBY';

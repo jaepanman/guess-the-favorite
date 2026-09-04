@@ -21,7 +21,7 @@ export const RevealView: React.FC<RevealViewProps> = ({
   const correctOptionId = roomState.presenterChoice;
   const correctOption = category.options.find(o => o.id === correctOptionId);
 
-  // Trigger celebration on mount
+  // Trigger celebration on mount (No auto-reading; user/teacher clicks speaker icon to play)
   useEffect(() => {
     playCelebrationSound();
     try {
@@ -33,11 +33,7 @@ export const RevealView: React.FC<RevealViewProps> = ({
     } catch {
       // Ignore
     }
-
-    if (presenter && correctOption) {
-      speakEnglishPhrase(`${presenter.name} likes ${correctOption.name}! I like ${correctOption.name}!`);
-    }
-  }, [presenter, correctOption]);
+  }, []);
 
   const allPlayers: Player[] = Object.values(roomState.players) as Player[];
   const guessers: Player[] = allPlayers.filter(p => p.id !== roomState.presenterId);
@@ -73,19 +69,32 @@ export const RevealView: React.FC<RevealViewProps> = ({
                 </span>
               )}
               <button
-                onClick={() => speakEnglishPhrase(`I like ${correctOption?.name}!`)}
-                title="Speak EFL answer phrase"
-                className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 transition cursor-pointer"
+                type="button"
+                onClick={() => speakEnglishPhrase(`${presenter?.name || 'The presenter'} likes ${correctOption?.name}! I like ${correctOption?.name}!`)}
+                title="Play answer audio"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition cursor-pointer text-xs font-bold"
               >
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-4 h-4 text-emerald-400" />
+                <span>Play Audio</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* EFL Speaking Answer Practice */}
-        <div className="max-w-lg mx-auto p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-200 text-xs sm:text-sm font-semibold">
-          English Speaking Model: <strong className="text-white">&ldquo;I like {correctOption?.name}!&rdquo;</strong>
+        <div className="max-w-lg mx-auto p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-200 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3">
+          <div>
+            English Speaking Model: <strong className="text-white">&ldquo;I like {correctOption?.name}!&rdquo;</strong>
+          </div>
+          <button
+            type="button"
+            onClick={() => speakEnglishPhrase(`I like ${correctOption?.name}!`)}
+            title={`Listen: "I like ${correctOption?.name}!"`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 transition cursor-pointer shrink-0 text-xs font-bold"
+          >
+            <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Hear Model</span>
+          </button>
         </div>
       </div>
 
@@ -142,6 +151,14 @@ export const RevealView: React.FC<RevealViewProps> = ({
                         CORRECT ANSWER
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => speakEnglishPhrase(`I like ${opt.name}!`)}
+                      title={`Listen: "I like ${opt.name}!"`}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div className="text-right">

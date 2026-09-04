@@ -245,6 +245,14 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
                   {myGuessOption.japanese && (
                     <span className="text-xs text-slate-400 font-medium">({myGuessOption.japanese})</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => speakEnglishPhrase(`I think ${presenter?.name || 'they'} like ${myGuessOption.name}!`)}
+                    title={`Hear: "I think ${presenter?.name || 'they'} like ${myGuessOption.name}!"`}
+                    className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition cursor-pointer shrink-0 ml-1"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
                 </div>
               )}
               <p className="text-slate-300 text-base">
@@ -271,11 +279,19 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                 {category.options.map((opt) => (
-                  <button
+                  <div
                     key={opt.id}
                     id={`guess-option-${opt.id}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleLockIn(opt.id)}
-                    className="group relative flex flex-col p-4 sm:p-5 rounded-2xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5 active:translate-y-0"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleLockIn(opt.id);
+                      }
+                    }}
+                    className="group relative flex flex-col p-4 sm:p-5 rounded-2xl bg-slate-800/40 hover:bg-slate-800/80 border-2 border-white/10 hover:border-indigo-500 shadow-lg hover:shadow-indigo-500/10 transition-all text-left cursor-pointer overflow-hidden backdrop-blur-xs transform hover:-translate-y-0.5 active:translate-y-0 select-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <div className="flex items-center justify-between mb-2 sm:mb-3">
                       <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-800 group-hover:bg-indigo-500 group-hover:text-white font-mono font-black text-xs sm:text-sm flex items-center justify-center text-slate-400 transition">
@@ -304,14 +320,24 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
 
                     <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-bold text-indigo-300">
                       <span>[{opt.keyNumber}]</span>
-                      <Zap className="w-3.5 h-3.5 text-orange-400 opacity-0 group-hover:opacity-100 transition" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakEnglishPhrase(`I like ${opt.name}!`);
+                        }}
+                        title={`Hear "I like ${opt.name}!"`}
+                        className="p-1 rounded-lg hover:bg-white/10 text-indigo-400 hover:text-white transition shrink-0 cursor-pointer"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                     {/* Bottom geometric accent bar */}
                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-900">
                       <div className="h-full bg-indigo-500 w-0 group-hover:w-full transition-all duration-300"></div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>

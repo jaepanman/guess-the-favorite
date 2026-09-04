@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, Award, Star, Zap, Crown, UserCheck } from 'lucide-react';
+import { Trophy, RotateCcw, Award, Star, Zap, Crown, UserCheck, Volume2 } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { playCelebrationSound, speakEnglishPhrase } from '../utils/soundEffects';
 
@@ -20,6 +20,7 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
   const myRank = myPlayer ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1 : 0;
   const roundsPlayed = roomState.roundIndex + 1;
 
+  // Trigger celebration on mount (No auto-reading; user/teacher clicks speaker icon to play)
   useEffect(() => {
     playCelebrationSound();
     try {
@@ -31,11 +32,7 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
     } catch {
       // Ignore
     }
-
-    if (champion) {
-      speakEnglishPhrase(`Congratulations ${champion.name}! You are the classroom champion!`);
-    }
-  }, [champion]);
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 text-center space-y-8">
@@ -56,9 +53,20 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
         {champion && (
           <div className="mt-6 p-6 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 max-w-md mx-auto space-y-2">
             <div className="text-5xl">{champion.avatar}</div>
-            <h2 className="text-2xl font-black text-white">
-              {champion.name}
-            </h2>
+            <div className="flex items-center justify-center gap-2.5">
+              <h2 className="text-2xl sm:text-3xl font-black text-white">
+                {champion.name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => speakEnglishPhrase(`Congratulations ${champion.name}! You are the classroom champion!`)}
+                title={`Play audio: "Congratulations ${champion.name}! You are the classroom champion!"`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
+              >
+                <Volume2 className="w-4 h-4 text-amber-400" />
+                <span>Play Audio</span>
+              </button>
+            </div>
             <div className="text-3xl font-mono font-black text-amber-400">
               {champion.score} <span className="text-sm text-slate-300 font-sans">total points</span>
             </div>

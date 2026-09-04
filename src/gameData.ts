@@ -173,6 +173,18 @@ export const AVAILABLE_COLORS = [
 ];
 
 /**
+ * Returns a randomized permutation of the game categories for a new game.
+ */
+export function getRandomizedCategoryOrder(): CategoryId[] {
+  const shuffled = [...CATEGORY_ORDER];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
  * Returns a category with 5 randomly chosen options from the pool of 10,
  * re-numbered 1 to 5 for clean single-screen UI layout and hotkey mappings.
  */

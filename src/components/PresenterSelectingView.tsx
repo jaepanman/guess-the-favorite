@@ -89,11 +89,21 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
         </div>
 
         {/* EFL Classroom Practice Prompt */}
-        <div className="max-w-xl mx-auto p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-200 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-semibold">
-          <MessageCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>
-            Class asks: <strong className="text-white">&ldquo;What {category.label.toLowerCase()} do you like, {presenter?.name || 'Presenter'}?&rdquo;</strong>
-          </span>
+        <div className="max-w-xl mx-auto p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-200 flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold">
+          <div className="flex items-center gap-2.5">
+            <MessageCircle className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span>
+              Class asks: <strong className="text-white">&ldquo;What {category.label.toLowerCase()} do you like, {presenter?.name || 'Presenter'}?&rdquo;</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => speakEnglishPhrase(`What ${category.label.toLowerCase()} do you like, ${presenter?.name || 'Presenter'}?`)}
+            title="Listen to class question"
+            className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition cursor-pointer shrink-0"
+          >
+            <Volume2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -263,6 +273,14 @@ export const PresenterSelectingView: React.FC<PresenterSelectingViewProps> = ({
                     <span className="text-[10px] text-slate-400 font-medium mt-0.5">{opt.japanese}</span>
                   )}
                   <span className="text-[9px] text-indigo-300/60 font-mono mt-0.5">{opt.phonetic}</span>
+                  <button
+                    type="button"
+                    onClick={() => speakEnglishPhrase(`I like ${opt.name}!`)}
+                    title={`Hear "I like ${opt.name}!"`}
+                    className="mt-1 p-1 rounded hover:bg-white/10 text-indigo-400 hover:text-indigo-200 transition cursor-pointer"
+                  >
+                    <Volume2 className="w-3 h-3" />
+                  </button>
                 </div>
               ))}
             </div>
