@@ -58,6 +58,7 @@ function getOrCreateRoom(code: string): ServerRoom {
       roundIndex: 0,
       categories: randomizedCategories,
       currentCategory: initialCategory,
+      hostId: null,
       presenterId: null,
       presenterChoice: null,
       guessPhaseStartTime: null,
@@ -353,6 +354,11 @@ function handleJoin(
   const room = getOrCreateRoom(roomCode);
   let playerId = existingPlayerId;
 
+  // Check if a teacher / host is already present in this room
+  const existingTeacher = Object.values(room.state.players).find(
+    p => p.id !== playerId && (p.isTeacher || (room.state.hostId && p.id === room.state.hostId))
+  );
+
   // If player already exists in this room, re-attach session
   if (playerId && room.state.players[playerId]) {
     const existing = room.state.players[playerId];
@@ -361,7 +367,13 @@ function handleJoin(
     existing.favoriteColor = favoriteColor || existing.favoriteColor;
     existing.connected = true;
     if (typeof isTeacher === 'boolean') {
-      existing.isTeacher = isTeacher;
+      // If another teacher already exists, enforce student role
+      if (isTeacher && existingTeacher && existing.id !== existingTeacher.id) {
+        existing.isTeacher = false;
+        existing.role = existing.id === room.state.presenterId ? 'presenter' : 'student';
+      } else {
+        existing.isTeacher = isTeacher;
+      }
     }
     updateRanks(room.state.players);
     return { room, player: existing };
@@ -373,29 +385,65 @@ function handleJoin(
   }
 
   const isFirstPlayer = Object.keys(room.state.players).length === 0;
-  const playerIsTeacher = typeof isTeacher === 'boolean' ? isTeacher : isFirstPlayer;
+
+  // Once one teacher joins, any other user who selects 発表者・先生 should automatically be switched to a student 生徒 role
+  let effectiveIsTeacher = false;
+  if (isFirstPlayer) {
+    effectiveIsTeacher = true;
+  } else if (existingTeacher) {
+    // A teacher/host already exists; demote / switch to student
+    effectiveIsTeacher = false;
+  } else {
+    effectiveIsTeacher = Boolean(isTeacher);
+  }
+
+  if (!room.state.hostId) {
+    room.state.hostId = playerId;
+  }
+
+  const isTeacherRole = (room.state.hostId === playerId);
+  const isPresenterRole = isTeacherRole || room.state.presenterId === null;
 
   const player: Player = {
     id: playerId,
-    name: name.trim() || (playerIsTeacher ? 'Teacher' : 'Student'),
-    avatar: avatar || '🐶',
+    name: name.trim() || (isTeacherRole ? 'Teacher' : 'Student'),
+    avatar: avatar || (isTeacherRole ? '👩‍🏫' : '🐶'),
     favoriteColor: favoriteColor || 'sky',
     score: 0,
     previousRank: 0,
     currentRank: Object.keys(room.state.players).length + 1,
-    isPresenter: playerIsTeacher || room.state.presenterId === null,
-    isTeacher: Boolean(playerIsTeacher),
+    isPresenter: isPresenterRole,
+    isTeacher: isTeacherRole,
+    role: isTeacherRole ? 'teacher' : (isPresenterRole ? 'presenter' : 'student'),
     connected: true,
     currentGuess: null,
     guessElapsedMs: null,
     roundScore: 0,
   };
 
-  if (playerIsTeacher || room.state.presenterId === null) {
+  if (room.state.presenterId === null || (isTeacherRole && isFirstPlayer)) {
     room.state.presenterId = playerId;
   }
 
   room.state.players[playerId] = player;
+
+  // Refresh roles for all players in room: ensure ONLY 1 teacher/host exists
+  const actualHostId = room.state.hostId || playerId;
+  Object.values(room.state.players).forEach(p => {
+    p.isPresenter = p.id === room.state.presenterId;
+    if (p.id === actualHostId) {
+      p.role = 'teacher';
+      p.isTeacher = true;
+    } else {
+      p.isTeacher = false;
+      if (p.id === room.state.presenterId) {
+        p.role = 'presenter';
+      } else {
+        p.role = 'student';
+      }
+    }
+  });
+
   updateRanks(room.state.players);
 
   return { room, player };
@@ -407,8 +455,20 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     return;
   }
 
+  const isHost = Boolean(
+    player?.isTeacher ||
+    (room.state.hostId && playerId === room.state.hostId)
+  );
+  const isPresenter = Boolean(playerId === room.state.presenterId);
+  const isHostOrPresenter = Boolean(
+    isHost ||
+    isPresenter ||
+    !room.state.presenterId
+  );
+
   switch (msg.type) {
     case 'START_GAME': {
+      if (!isHostOrPresenter) return;
       clearRoomTimers(room);
       room.state.roundIndex = 0;
       const randomizedCategories = getRandomizedCategoryOrder();
@@ -484,6 +544,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'TRIGGER_REVEAL': {
+      if (!isHostOrPresenter) return;
       if (room.state.stage === 'CLASS_GUESSING') {
         clearRoomTimers(room);
         room.state.stage = 'REVEAL';
@@ -493,6 +554,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'SHOW_SCOREBOARD': {
+      if (!isHostOrPresenter) return;
       if (room.state.stage === 'REVEAL') {
         room.state.stage = 'SCOREBOARD';
       }
@@ -500,6 +562,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'NEXT_ROUND': {
+      if (!isHostOrPresenter) return;
       clearRoomTimers(room);
       const nextIndex = room.state.roundIndex + 1;
 
@@ -538,10 +601,26 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'SET_PRESENTER': {
+      if (!isHostOrPresenter) return;
       if (room.state.players[msg.playerId]) {
+        if (room.botPresenterTimeout) {
+          clearTimeout(room.botPresenterTimeout);
+          room.botPresenterTimeout = undefined;
+        }
         room.state.presenterId = msg.playerId;
         Object.values(room.state.players).forEach(p => {
           p.isPresenter = p.id === msg.playerId;
+          if (p.id === room.state.hostId) {
+            p.role = 'teacher';
+            p.isTeacher = true;
+          } else {
+            p.isTeacher = false;
+            if (p.isPresenter) {
+              p.role = 'presenter';
+            } else {
+              p.role = 'student';
+            }
+          }
         });
         if (room.state.stage === 'PRESENTER_SELECTING') {
           checkBotPresenterSelection(room);
@@ -550,17 +629,58 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
       break;
     }
 
+    case 'TAKE_BACK_PRESENTER': {
+      // The teacher/host who started the room can take back presenter control at any time
+      if (!isHost) return;
+      if (room.botPresenterTimeout) {
+        clearTimeout(room.botPresenterTimeout);
+        room.botPresenterTimeout = undefined;
+      }
+      const targetId = playerId || room.state.hostId;
+      if (targetId && room.state.players[targetId]) {
+        room.state.presenterId = targetId;
+        Object.values(room.state.players).forEach(p => {
+          p.isPresenter = p.id === targetId;
+          if (p.id === room.state.hostId) {
+            p.role = 'teacher';
+            p.isTeacher = true;
+          } else {
+            p.isTeacher = false;
+            if (p.isPresenter) {
+              p.role = 'presenter';
+            } else {
+              p.role = 'student';
+            }
+          }
+        });
+      }
+      break;
+    }
+
     case 'PICK_RANDOM_PRESENTER': {
+      if (!isHostOrPresenter) return;
+      if (room.botPresenterTimeout) {
+        clearTimeout(room.botPresenterTimeout);
+        room.botPresenterTimeout = undefined;
+      }
       const playerIds = Object.keys(room.state.players);
       if (playerIds.length > 0) {
-        const candidates = playerIds.filter(id => id !== room.state.presenterId);
-        const chosenId = candidates.length > 0
-          ? candidates[Math.floor(Math.random() * candidates.length)]
-          : playerIds[0];
+        // Prioritize selecting a student (other than current presenter), but fallback to any other candidate
+        const studentCandidates = playerIds.filter(id => id !== room.state.presenterId && !room.state.players[id]?.isTeacher);
+        const otherCandidates = playerIds.filter(id => id !== room.state.presenterId);
+        const pool = studentCandidates.length > 0 ? studentCandidates : (otherCandidates.length > 0 ? otherCandidates : playerIds);
+        const chosenId = pool[Math.floor(Math.random() * pool.length)];
         
         room.state.presenterId = chosenId;
         Object.values(room.state.players).forEach(p => {
           p.isPresenter = p.id === chosenId;
+          if (p.id === room.state.hostId || p.isTeacher) {
+            p.role = 'teacher';
+          } else if (p.isPresenter) {
+            p.role = 'presenter';
+          } else {
+            p.role = 'student';
+          }
         });
         if (room.state.stage === 'PRESENTER_SELECTING') {
           checkBotPresenterSelection(room);
@@ -570,11 +690,13 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'UPDATE_SETTINGS': {
+      if (!isHostOrPresenter) return;
       room.state.settings = { ...room.state.settings, ...msg.settings };
       break;
     }
 
     case 'ADD_DEMO_BOTS': {
+      if (!isHostOrPresenter) return;
       const count = Math.min(6, Math.max(1, msg.count || 3));
       const existingNames = new Set(Object.values(room.state.players).map(p => p.name));
       const availableBots = BOT_NAMES.filter(n => !existingNames.has(n));
@@ -604,6 +726,7 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'REMOVE_DEMO_BOTS': {
+      if (!isHostOrPresenter) return;
       Object.keys(room.state.players).forEach(id => {
         if (room.state.players[id].isBot) {
           delete room.state.players[id];
@@ -618,12 +741,14 @@ function handleClientAction(room: ServerRoom, playerId: string, msg: ClientMessa
     }
 
     case 'END_GAME': {
+      if (!isHostOrPresenter) return;
       clearRoomTimers(room);
       room.state.stage = 'GAME_OVER';
       break;
     }
 
     case 'RESET_GAME': {
+      if (!isHostOrPresenter) return;
       clearRoomTimers(room);
       room.state.roundIndex = 0;
       const randomizedCategories = getRandomizedCategoryOrder();

@@ -45,10 +45,10 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div>
             <h2 className="text-xl font-black text-white">
-              Teacher & Classroom Settings
+              先生向けゲーム設定
             </h2>
             <p className="text-xs text-slate-400">
-              Manage presenter rotation, scoring rules, and rounds
+              発表者の交代・ルール・制限時間をいつでも変更できます
             </p>
           </div>
           <button
@@ -67,10 +67,10 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
               <Crown className="w-5 h-5 text-amber-400" />
               <div>
                 <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-                  Current Presenter
+                  いまの発表者
                 </div>
                 <div className="text-sm font-black text-white">
-                  {currentPresenter ? `${currentPresenter.avatar} ${currentPresenter.name}` : 'None'}
+                  {currentPresenter ? `${currentPresenter.avatar} ${currentPresenter.name}` : '未設定'}
                 </div>
               </div>
             </div>
@@ -84,14 +84,14 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition shadow-xs cursor-pointer"
             >
               <Shuffle className="w-3.5 h-3.5" />
-              Pick Random Student
+              ランダムに選ぶ 🎲
             </button>
           </div>
 
           {/* Quick Presenter Select Dropdown */}
           <div>
             <label className="block text-xs font-bold text-amber-200 mb-1">
-              Appoint Specific Student as Presenter:
+              特定の生徒を発表者に指名する:
             </label>
             <select
               value={roomState.presenterId || ''}
@@ -100,7 +100,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             >
               {players.map(p => (
                 <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                  {p.avatar} {p.name} {p.isTeacher ? '(Teacher)' : ''}
+                  {p.avatar} {p.name} {p.isTeacher ? '(先生)' : ''}
                 </option>
               ))}
             </select>
@@ -110,17 +110,17 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
         {/* Gamification Settings */}
         <div className="space-y-3">
           <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-            Rules & Gamification
+            ルール・ポイント設定
           </h3>
 
           {/* Auto rotate toggle */}
           <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-800/60 border border-white/10 cursor-pointer hover:bg-slate-800/90 transition">
             <div>
               <div className="text-sm font-bold text-white">
-                Auto-Rotate Presenter
+                発表者を毎ラウンド自動交代
               </div>
               <div className="text-xs text-slate-400">
-                Automatically picks a new random student presenter every round
+                ラウンド終了時に、ランダムで次の生徒を発表者に選びます
               </div>
             </div>
             <input
@@ -135,10 +135,10 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
           <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-800/60 border border-white/10 cursor-pointer hover:bg-slate-800/90 transition">
             <div>
               <div className="text-sm font-bold text-white">
-                Host Wrong-Answer Compensation
+                発表者だましボーナス
               </div>
               <div className="text-xs text-slate-400">
-                Presenter earns +150 pts for each classmate who guesses incorrectly
+                間違えた友だち1人につき、発表者に +150点 のボーナスが入ります
               </div>
             </div>
             <input
@@ -154,7 +154,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-indigo-400" />
               <div className="text-sm font-bold text-white">
-                Guessing Timer
+                回答の制限時間
               </div>
             </div>
             <div className="flex gap-1.5">
@@ -169,7 +169,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                       : 'bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700'
                   }`}
                 >
-                  {sec}s
+                  {sec}秒
                 </button>
               ))}
             </div>
@@ -179,7 +179,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
         {/* Jump to Category */}
         <div className="space-y-2">
           <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-            Jump to Category
+            問題（テーマ）へジャンプ
           </h3>
           <div className="grid grid-cols-4 gap-2">
             {(roomState.categories && roomState.categories.length > 0 ? roomState.categories : CATEGORY_ORDER).map((catId, idx) => {
@@ -200,10 +200,10 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                   }`}
                 >
                   <span className="absolute top-1 left-1.5 text-[9px] font-mono font-black text-slate-500">
-                    R{idx + 1}
+                    第{idx + 1}問
                   </span>
                   <span className="text-xl mt-1">{cat.icon}</span>
-                  <span>{cat.label}</span>
+                  <span>{cat.japaneseLabel || cat.label}</span>
                 </button>
               );
             })}
@@ -218,8 +218,8 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                 <Server className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-bold text-white">Multiplayer Server Setup</div>
-                <div className="text-[11px] text-slate-400">Configure Render/Railway backend for cross-device play on Vercel</div>
+                <div className="text-xs font-bold text-white">オンライン通信サーバー設定</div>
+                <div className="text-[11px] text-slate-400">生徒各自のタブレット・端末を接続するためのサーバー接続設定</div>
               </div>
             </div>
             <button
@@ -229,7 +229,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
               }}
               className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer"
             >
-              Configure
+              設定する
             </button>
           </div>
         )}
@@ -242,14 +242,14 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
               className="px-3.5 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold border border-indigo-500/30 flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              +3 Demo Bots
+              +3人 練習用ボット
             </button>
             <button
               onClick={onRemoveBots}
               className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/40 hover:text-rose-300 text-slate-400 text-xs font-bold border border-white/10 flex items-center gap-1.5 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Remove Bots
+              ボットを消す
             </button>
           </div>
 
@@ -257,7 +257,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             {onEndGame && roomState.stage !== 'LOBBY' && roomState.stage !== 'GAME_OVER' && (
               <button
                 onClick={() => {
-                  if (confirm('End the game now and jump straight to the results and podium?')) {
+                  if (confirm('いまのゲームを終了して、さいしゅう結果発表へ進みますか？')) {
                     onEndGame();
                     onClose();
                   }
@@ -265,12 +265,12 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                 className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 flex items-center gap-1.5 cursor-pointer"
               >
                 <Flag className="w-3.5 h-3.5 text-amber-400" />
-                End (Show Results)
+                結果発表へスキップ
               </button>
             )}
             <button
               onClick={() => {
-                if (confirm('End the current game immediately (without showing results) and return everyone to the main setup screen? All scores will be cleared.')) {
+                if (confirm('結果を表示せずに、ゲームをやめて最初の画面にもどりますか？（スコアはリセットされます）')) {
                   onResetGame();
                   onClose();
                 }
@@ -279,7 +279,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
               className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold border border-rose-500/40 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-              Reset Game (End without Results)
+              ゲームをやめる (最初へ)
             </button>
           </div>
         </div>

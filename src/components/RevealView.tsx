@@ -58,8 +58,8 @@ export const RevealView: React.FC<RevealViewProps> = ({
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       {/* Grand Reveal Card */}
       <div className="bg-slate-900/70 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-md p-6 sm:p-10 text-center space-y-4 relative overflow-hidden">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black uppercase tracking-[0.2em]">
-          🎉 REVEAL TIME
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black uppercase tracking-[0.15em]">
+          🎉 せいかい発表！ • REVEAL TIME
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -67,26 +67,26 @@ export const RevealView: React.FC<RevealViewProps> = ({
             {presenter?.avatar || '👑'}
           </div>
           <div className="text-left sm:text-center md:text-left">
-            <div className="text-xs font-black text-slate-400 uppercase tracking-widest">
-              {presenter?.name}&apos;s Favorite {category.label}
+            <div className="text-xs font-black text-slate-300 uppercase tracking-widest">
+              {presenter?.name}ちゃんの すきな {category.japaneseLabel || category.label}
             </div>
             <div className="text-3xl sm:text-5xl font-black text-white flex items-center justify-center sm:justify-start gap-3 flex-wrap">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
                 {correctOption?.icon} {correctOption?.name}
               </span>
               {correctOption?.japanese && (
-                <span className="text-sm sm:text-lg text-slate-400 font-medium tracking-normal">
+                <span className="text-sm sm:text-lg text-slate-300 font-medium tracking-normal">
                   ({correctOption.japanese})
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => speakEnglishPhrase(`${presenter?.name || 'The presenter'} likes ${correctOption?.name}! I like ${correctOption?.name}!`)}
-                title="Play answer audio"
+                title="答えの音声をきく"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition cursor-pointer text-xs font-bold"
               >
                 <Volume2 className="w-4 h-4 text-emerald-400" />
-                <span>Play Audio</span>
+                <span>音声をきく</span>
               </button>
             </div>
           </div>
@@ -95,16 +95,16 @@ export const RevealView: React.FC<RevealViewProps> = ({
         {/* EFL Speaking Answer Practice */}
         <div className="max-w-lg mx-auto p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-200 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3">
           <div>
-            English Speaking Model: <strong className="text-white">&ldquo;I like {correctOption?.name}!&rdquo;</strong>
+            英語でお話してみよう: <strong className="text-white">&ldquo;I like {correctOption?.name}!&rdquo;</strong>
           </div>
           <button
             type="button"
             onClick={() => speakEnglishPhrase(`I like ${correctOption?.name}!`)}
-            title={`Listen: "I like ${correctOption?.name}!"`}
+            title={`「I like ${correctOption?.name}!」のお手本をきく`}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 transition cursor-pointer shrink-0 text-xs font-bold"
           >
             <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Hear Model</span>
+            <span>お手本をきく</span>
           </button>
         </div>
       </div>
@@ -135,28 +135,28 @@ export const RevealView: React.FC<RevealViewProps> = ({
               </div>
               <div>
                 <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Your Round Outcome
+                  あなたの結果
                 </div>
                 <div className="text-lg sm:text-xl font-black text-white">
                   {isPresenter ? (
-                    <span>Presenter Reward: +{hostBonusEarned} pts</span>
+                    <span>発表者ボーナス: +{hostBonusEarned}点</span>
                   ) : myTimedOut ? (
-                    <span className="text-rose-400">Time Expired: Ineligible for Points (0 pts)</span>
+                    <span className="text-rose-400">時間切れ: 得点なし (0点)</span>
                   ) : myIsCorrect ? (
-                    <span className="text-emerald-400">Correct Guess! +{myPlayer.roundScore || 0} pts</span>
+                    <span className="text-emerald-400">大正解！ +{myPlayer.roundScore || 0}点</span>
                   ) : (
-                    <span>Incorrect Guess (0 pts)</span>
+                    <span>おしかったね… (0点)</span>
                   )}
                 </div>
                 <p className="text-xs sm:text-sm mt-0.5 opacity-90">
                   {isPresenter ? (
-                    `You presented ${category.label} and fooled ${hostIncorrectCount} classmates!`
+                    `すきな${category.japaneseLabel || category.label}を発表して、${hostIncorrectCount}人の友だちをだませたよ！`
                   ) : myTimedOut ? (
-                    `You did not choose an answer within 15 seconds. Not answering makes you ineligible to score points this round. Lock in an answer next round to earn points!`
+                    `15秒以内に回答できませんでした。時間をすぎると得点がもらえません。次のラウンドは はやくボタンをおそう！`
                   ) : myIsCorrect ? (
-                    `You locked in ${myGuessOption?.name} in ${((myPlayer.guessElapsedMs || 0) / 1000).toFixed(2)}s (+${myPlayer.lastScoreBreakdown?.base} base, +${myPlayer.lastScoreBreakdown?.speedBonus} speed bonus).`
+                    `「${myGuessOption?.name}」を ${((myPlayer.guessElapsedMs || 0) / 1000).toFixed(2)}秒で回答（基本点 +${myPlayer.lastScoreBreakdown?.base}点, スピードボーナス +${myPlayer.lastScoreBreakdown?.speedBonus}点）！`
                   ) : (
-                    `You guessed ${myGuessOption?.name || 'an option'}, but ${presenter?.name || 'the presenter'} likes ${correctOption?.name}.`
+                    `あなたは「${myGuessOption?.name || '選択肢'}」をえらびましたが、${presenter?.name || '発表者'}ちゃんのすきなものは「${correctOption?.name}」でした。`
                   )}
                 </p>
               </div>
@@ -164,10 +164,10 @@ export const RevealView: React.FC<RevealViewProps> = ({
 
             <div className="text-left sm:text-right shrink-0">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Total Score
+                合計スコア
               </div>
               <div className="text-2xl font-mono font-black text-white">
-                {myPlayer.score} <span className="text-xs text-slate-400 font-normal">pts</span>
+                {myPlayer.score} <span className="text-xs text-slate-400 font-normal">点</span>
               </div>
             </div>
           </div>
@@ -180,14 +180,14 @@ export const RevealView: React.FC<RevealViewProps> = ({
           <div>
             <h2 className="text-xl font-black text-white flex items-center gap-2">
               <Users className="w-5 h-5 text-indigo-400" />
-              Class Choice Breakdown
+              みんなの回答グラフ
             </h2>
             <p className="text-xs text-slate-400">
-              See how many students chose what option
+              どの選択肢を 何人の友だちが選んだか見てみよう
             </p>
           </div>
           <span className="text-xs font-mono font-bold text-slate-400">
-            {totalGuessers} total guesses
+            {totalGuessers} 人の回答
           </span>
         </div>
 
@@ -217,20 +217,20 @@ export const RevealView: React.FC<RevealViewProps> = ({
                       {opt.name}
                     </span>
                     {opt.japanese && (
-                      <span className="text-xs text-slate-400 font-normal">
+                      <span className="text-xs text-slate-300 font-normal">
                         ({opt.japanese})
                       </span>
                     )}
                     {isCorrect && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black border border-emerald-500/30">
                         <Crown className="w-3 h-3 text-emerald-400" />
-                        CORRECT ANSWER
+                        正解！👑
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => speakEnglishPhrase(`I like ${opt.name}!`)}
-                      title={`Listen: "I like ${opt.name}!"`}
+                      title={`「I like ${opt.name}!」をきく`}
                       className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
@@ -239,7 +239,7 @@ export const RevealView: React.FC<RevealViewProps> = ({
 
                   <div className="text-right">
                     <span className="font-mono font-black text-white text-sm">
-                      {count} {count === 1 ? 'student' : 'students'}
+                      {count} 人
                     </span>
                     <span className="text-xs text-slate-400 font-bold ml-1.5">
                       ({percent}%)
@@ -281,10 +281,10 @@ export const RevealView: React.FC<RevealViewProps> = ({
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>Did Not Answer in Time (Ineligible for points)</span>
+                  <span>時間切れ（時間内に答えられなかった人）</span>
                 </div>
                 <span className="font-mono text-xs font-black text-rose-400 px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30">
-                  {timedOutGuessers.length} {timedOutGuessers.length === 1 ? 'student' : 'students'} (0 pts)
+                  {timedOutGuessers.length}人 (0点)
                 </span>
               </div>
 
@@ -296,7 +296,7 @@ export const RevealView: React.FC<RevealViewProps> = ({
                   >
                     <span>{p.avatar}</span>
                     <span>{p.name}</span>
-                    <span className="text-[10px] text-rose-400 font-bold font-mono">Timed Out</span>
+                    <span className="text-[10px] text-rose-400 font-bold font-mono">時間切れ</span>
                   </span>
                 ))}
               </div>
@@ -315,26 +315,26 @@ export const RevealView: React.FC<RevealViewProps> = ({
             </div>
             <div>
               <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-                Presenter Compensation
+                発表者ボーナス (Presenter Bonus)
               </div>
               <div className="text-lg font-black text-white">
-                {presenter?.name} earned +{hostBonusEarned} pts!
+                {presenter?.name}ちゃんが +{hostBonusEarned}点 ゲット！
               </div>
             </div>
           </div>
 
           <p className="text-xs sm:text-sm text-slate-300">
-            For leading the round and choosing an engaging favorite:
+            発表してくれたお礼と、みんなをだませたボーナスポイントだよ:
           </p>
 
           <div className="space-y-1.5 text-xs font-bold text-slate-300 bg-slate-900/60 p-3.5 rounded-xl border border-white/10">
             <div className="flex justify-between">
-              <span>Host Appreciation Bonus:</span>
-              <span className="font-mono text-amber-400">+200 pts</span>
+              <span>発表お礼ボーナス:</span>
+              <span className="font-mono text-amber-400">+200点</span>
             </div>
             <div className="flex justify-between">
-              <span>Tricked / Timed-out Classmates ({hostIncorrectCount} &times; 150 pts):</span>
-              <span className="font-mono text-amber-400">+{hostIncorrectCount * 150} pts</span>
+              <span>だませた・時間切れ人数 ({hostIncorrectCount}人 &times; 150点):</span>
+              <span className="font-mono text-amber-400">+{hostIncorrectCount * 150}点</span>
             </div>
           </div>
         </div>
@@ -347,10 +347,10 @@ export const RevealView: React.FC<RevealViewProps> = ({
             </div>
             <div>
               <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
-                Fastest Correct Guesses
+                正解スピードランキング
               </div>
               <div className="text-lg font-black text-white">
-                Speed Bonus Breakdown
+                はやく正解した友だち ⚡
               </div>
             </div>
           </div>
@@ -371,10 +371,10 @@ export const RevealView: React.FC<RevealViewProps> = ({
                     <span className="flex items-center gap-1.5">
                       <span>{p.avatar}</span>
                       <span>{p.name}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">({elapsedSec}s)</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({elapsedSec}秒)</span>
                     </span>
                     <span className="font-mono text-emerald-400">
-                      +{p.roundScore} pts (+{breakdown?.speedBonus} speed)
+                      +{p.roundScore}点 (スピード +{breakdown?.speedBonus})
                     </span>
                   </div>
                 );
@@ -382,23 +382,30 @@ export const RevealView: React.FC<RevealViewProps> = ({
 
             {guessers.filter(p => p.currentGuess === correctOptionId).length === 0 && (
               <p className="text-xs text-slate-400 italic py-2">
-                Nobody guessed {presenter?.name}&apos;s favorite! {presenter?.name} fooled the entire class!
+                だれも正解できませんでした！{presenter?.name}ちゃんの完全勝利！
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Button to Leaderboard */}
+      {/* Button to Leaderboard (Presenter/Host advances, students wait) */}
       <div className="text-center pt-2">
-        <button
-          onClick={onShowScoreboard}
-          id="view-scoreboard-btn"
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
-        >
-          <span>View Scoreboard & Rankings</span>
-          <ArrowRight className="w-5 h-5" />
-        </button>
+        {isPresenter || myPlayer?.isTeacher ? (
+          <button
+            onClick={onShowScoreboard}
+            id="view-scoreboard-btn"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
+          >
+            <span>得点ランキングを見る 🏆</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-800/80 border border-white/10 text-slate-300 text-sm font-semibold">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping" />
+            <span>{presenter?.name || '発表する人'}が得点画面を開くのを まってね… ⏳</span>
+          </div>
+        )}
       </div>
     </div>
   );

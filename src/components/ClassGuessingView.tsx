@@ -113,15 +113,15 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-black uppercase tracking-wider">
-                GUESSING PHASE
+                回答タイム • GUESSING
               </span>
-              <span className="text-xs font-bold text-slate-400">
-                {submittedCount} of {guessers.length} students answered
+              <span className="text-xs font-bold text-slate-300">
+                {submittedCount} / {guessers.length} 人が回答したよ
               </span>
             </div>
 
-            <p className="text-indigo-400 font-black text-xs uppercase tracking-[0.2em] mb-1">
-              Classroom EFL Question
+            <p className="text-indigo-400 font-black text-xs uppercase tracking-[0.15em] mb-1">
+              えいごの質問 • Classroom Question
             </p>
 
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-2.5">
@@ -129,13 +129,13 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               <button
                 onClick={() => speakEnglishPhrase(`What does ${presenter?.name || 'the presenter'} like?`)}
                 className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-white transition cursor-pointer"
-                title="Speak English prompt"
+                title="英語の音声をきく"
               >
                 <Volume2 className="w-5 h-5" />
               </button>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Category: <strong className="text-indigo-300">{category.label}</strong> • Guess fast for a high speed bonus!
+            <p className="text-xs sm:text-sm text-slate-300 mt-1">
+              「{presenter?.name}ちゃんのすきな {category.japaneseLabel || category.label} はどれかな？」 はやく答えるほどスピードボーナスUP！
             </p>
           </div>
 
@@ -145,10 +145,10 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               <Timer className="w-5 h-5 text-indigo-400 animate-pulse" />
               <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Time Left
+                  のこり時間
                 </div>
                 <div className="text-xl font-mono font-black text-white">
-                  {remainingSeconds}s
+                  {remainingSeconds}秒
                 </div>
               </div>
             </div>
@@ -157,10 +157,10 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               <Zap className="w-5 h-5 text-orange-400" />
               <div>
                 <div className="text-[10px] font-bold text-orange-300 uppercase tracking-wider">
-                  Speed Bonus
+                  スピードボーナス
                 </div>
                 <div className="text-xl font-mono font-black text-orange-400">
-                  +{currentSpeedBonus}
+                  +{currentSpeedBonus}点
                 </div>
               </div>
             </div>
@@ -177,10 +177,10 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               👑
             </div>
             <h2 className="text-2xl font-black text-white">
-              Your Choice is Locked!
+              あなたの答えは ひみつで保存されたよ！👑
             </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Classmates are trying to guess your favorite {category.label.toLowerCase()}.
+            <p className="text-slate-300 text-sm mt-1">
+              クラスの友だちが あなたのすきな {category.japaneseLabel || category.label} を当てているよ。
             </p>
           </div>
 
@@ -189,10 +189,10 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
             <div className="flex items-center justify-between text-sm font-bold">
               <span className="text-slate-300 flex items-center gap-2">
                 <Users className="w-4 h-4 text-indigo-400" />
-                Classmate Submissions
+                友だちの回答状況
               </span>
               <span className="text-indigo-400 font-mono text-base font-black">
-                {submittedCount} / {guessers.length}
+                {submittedCount} / {guessers.length}人
               </span>
             </div>
 
@@ -225,7 +225,7 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               id="reveal-now-btn"
               className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/20 transition cursor-pointer"
             >
-              Reveal Answer Now 📣
+              正解を発表する！ 📣 (Reveal Answer)
             </button>
           </div>
         </div>
@@ -239,19 +239,19 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h2 className="text-2xl font-black text-white">
-                Guess Locked In!
+                回答をおくったよ！ 🎉
               </h2>
               {myGuessOption && (
                 <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-slate-800/90 border border-white/10 text-white font-bold my-1 shadow-sm">
                   <span className="text-2xl">{myGuessOption.icon}</span>
                   <span className="font-black text-indigo-300 text-base">{myGuessOption.name}</span>
                   {myGuessOption.japanese && (
-                    <span className="text-xs text-slate-400 font-medium">({myGuessOption.japanese})</span>
+                    <span className="text-xs text-slate-300 font-medium">({myGuessOption.japanese})</span>
                   )}
                   <button
                     type="button"
                     onClick={() => speakEnglishPhrase(`I think ${presenter?.name || 'they'} like ${myGuessOption.name}!`)}
-                    title={`Hear: "I think ${presenter?.name || 'they'} like ${myGuessOption.name}!"`}
+                    title={`「I think ${presenter?.name || 'they'} like ${myGuessOption.name}!」をきく`}
                     className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition cursor-pointer shrink-0 ml-1"
                   >
                     <Volume2 className="w-4 h-4" />
@@ -259,13 +259,13 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
                 </div>
               )}
               <p className="text-slate-300 text-base">
-                You guessed in <strong className="font-mono text-emerald-400">{((lockedTime || 0) / 1000).toFixed(2)}s</strong>.
+                タイム: <strong className="font-mono text-emerald-400">{((lockedTime || 0) / 1000).toFixed(2)}秒</strong> で回答！
               </p>
               <div className="inline-block px-4 py-2 rounded-xl bg-slate-800/80 border border-emerald-500/30 text-sm font-bold text-emerald-300">
-                Potential Score: 500 Base + up to {Math.max(0, Math.round(500 * Math.max(0, 1 - ((lockedTime || 0) / timeLimitMs))))} Speed Bonus!
+                正解なら 基本500点 + 最大 {Math.max(0, Math.round(500 * Math.max(0, 1 - ((lockedTime || 0) / timeLimitMs))))} 点のスピードボーナス！
               </div>
               <p className="text-xs text-slate-400 mt-2">
-                Waiting for the grand reveal once all students finish...
+                みんなの回答がおわったら 答え合わせをするよ。まっててね…
               </p>
             </div>
           ) : isTimedOut ? (
@@ -276,21 +276,21 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               </div>
               <div className="space-y-1.5">
                 <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                  Participation Rule Enforced
+                  時間切れ
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-white pt-1">
-                  Time&apos;s Up! No Answer Submitted ⏰
+                  時間切れ！回答できませんでした ⏰
                 </h2>
                 <p className="text-rose-200 text-sm sm:text-base max-w-md mx-auto">
-                  You didn&apos;t choose an answer within the 15-second countdown.
+                  15秒以内にボタンをおせませんでした。
                 </p>
               </div>
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-200 font-bold text-sm">
                 <Lock className="w-4 h-4 text-rose-400" />
-                <span>Ineligible for Points This Round: <strong className="font-mono text-white text-base">0 pts</strong></span>
+                <span>このラウンドの得点: <strong className="font-mono text-white text-base">0 点</strong></span>
               </div>
               <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Not submitting an answer prevents scoring points. Be ready to click your guess quickly next round to get back in the game!
+                時間をすぎると得点がもらえません。次のラウンドは はやくボタンをおそう！
               </p>
             </div>
           ) : (
@@ -299,21 +299,21 @@ export const ClassGuessingView: React.FC<ClassGuessingViewProps> = ({
               {/* Participation Rule Notice & Hotkeys */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    Click an option or press [1 - {category.options.length}]:
+                  <span className="text-xs font-bold text-slate-200">
+                    すきだと思うものをクリック、またはキーボードの [1〜{category.options.length}] を押してね:
                   </span>
                   {remainingMs < 5000 ? (
                     <span className="text-[11px] font-bold text-rose-400 bg-rose-500/20 border border-rose-500/30 px-2.5 py-0.5 rounded-md animate-pulse">
-                      ⚠️ Hurry! Time running out!
+                      ⚠️ いそいで！のこりわずか！
                     </span>
                   ) : (
-                    <span className="text-[11px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
-                      15s limit (Must answer to score)
+                    <span className="text-[11px] font-medium text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md">
+                      15秒以内（正解＆スピードで点数UP）
                     </span>
                   )}
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-md self-start sm:self-auto">
-                  HOTKEYS [1-{category.options.length}]
+                  数字キー [1-{category.options.length}]
                 </span>
               </div>
 

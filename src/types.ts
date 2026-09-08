@@ -13,6 +13,7 @@ export interface CategoryOption {
 export interface GameCategory {
   id: CategoryId;
   label: string;
+  japaneseLabel?: string;
   questionPhrase: string; // "What sport do you like?"
   answerPhraseTemplate: string; // "I like {option}!"
   icon: string;
@@ -29,6 +30,7 @@ export interface Player {
   currentRank: number;
   isPresenter: boolean;
   isTeacher: boolean;
+  role?: 'teacher' | 'presenter' | 'student';
   isBot?: boolean;
   connected: boolean;
   currentGuess?: string | null;
@@ -79,6 +81,7 @@ export interface GameRoomState {
   roundIndex: number;
   categories: CategoryId[];
   currentCategory: GameCategory;
+  hostId: string | null;
   presenterId: string | null;
   presenterChoice: string | null;
   guessPhaseStartTime: number | null;
@@ -98,6 +101,7 @@ export type ClientMessage =
   | { type: 'SHOW_SCOREBOARD'; roomCode: string }
   | { type: 'NEXT_ROUND'; roomCode: string; categoryId?: CategoryId }
   | { type: 'SET_PRESENTER'; roomCode: string; playerId: string }
+  | { type: 'TAKE_BACK_PRESENTER'; roomCode: string }
   | { type: 'PICK_RANDOM_PRESENTER'; roomCode: string }
   | { type: 'UPDATE_SETTINGS'; roomCode: string; settings: Partial<GameSettings> }
   | { type: 'ADD_DEMO_BOTS'; roomCode: string; count: number }

@@ -43,11 +43,11 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
         </div>
 
         <div className="inline-block px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-widest mb-2">
-          Final Results • {roundsPlayed} {roundsPlayed === 1 ? 'Round' : 'Rounds'} Played
+          さいしゅう結果発表 • 全{roundsPlayed}ラウンド終了
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-          Classroom Champion
+          クラスのチャンピオン！ 👑
         </h1>
 
         {champion && (
@@ -60,18 +60,18 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
               <button
                 type="button"
                 onClick={() => speakEnglishPhrase(`Congratulations ${champion.name}! You are the classroom champion!`)}
-                title={`Play audio: "Congratulations ${champion.name}! You are the classroom champion!"`}
+                title={`「Congratulations ${champion.name}! You are the classroom champion!」をきく`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
               >
                 <Volume2 className="w-4 h-4 text-amber-400" />
-                <span>Play Audio</span>
+                <span>音声をきく</span>
               </button>
             </div>
             <div className="text-3xl font-mono font-black text-amber-400">
-              {champion.score} <span className="text-sm text-slate-300 font-sans">total points</span>
+              {champion.score} <span className="text-sm text-slate-300 font-sans">点</span>
             </div>
-            <p className="text-xs text-amber-200/80 font-bold">
-              Fantastic English speaking and guessing practice!
+            <p className="text-xs text-amber-200 font-bold">
+              えいごでお話しながら 楽しくクイズができました！🎉
             </p>
           </div>
         )}
@@ -79,17 +79,17 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
         {/* My placement pill */}
         {myPlayer && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-sm">
-            <span>You ({myPlayer.avatar} {myPlayer.name}) finished in:</span>
-            <span className="font-mono font-black text-white">#{myRank} Place</span>
-            <span>({myPlayer.score} pts)</span>
+            <span>あなた ({myPlayer.avatar} {myPlayer.name}):</span>
+            <span className="font-mono font-black text-white">第 {myRank} 位</span>
+            <span>({myPlayer.score} 点)</span>
           </div>
         )}
 
         {/* Final Standings List */}
         <div className="mt-8 text-left max-w-lg mx-auto space-y-2">
           <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 px-3 flex items-center justify-between">
-            <span>Final Standings ({allPlayers.length} students)</span>
-            <span>Total Points</span>
+            <span>さいしゅう順位 ({allPlayers.length}人)</span>
+            <span>合計得点</span>
           </div>
           <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
             {allPlayers.map((player, idx) => {
@@ -109,12 +109,12 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
                     <span className="text-white truncate">{player.name}</span>
                     {isMe && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300">
-                        YOU
+                        じぶん
                       </span>
                     )}
                   </div>
                   <span className="font-mono text-indigo-400 font-black shrink-0">
-                    {player.score} pts
+                    {player.score} 点
                   </span>
                 </div>
               );
@@ -130,7 +130,7 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
             className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
           >
             <RotateCcw className="w-5 h-5" />
-            <span>Reset to Main Setup Screen</span>
+            <span>もう一度あそぶ (はじめの画面へ)</span>
           </button>
         </div>
       </div>

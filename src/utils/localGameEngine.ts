@@ -53,6 +53,7 @@ function createInitialState(code: string): GameRoomState {
     roundIndex: 0,
     categories: randomizedCategories,
     currentCategory: initialCategory,
+    hostId: null,
     presenterId: null,
     presenterChoice: null,
     guessPhaseStartTime: null,
@@ -276,6 +277,11 @@ export function localJoin(
 ): { player: Player; state: GameRoomState } {
   let playerId = existingPlayerId;
 
+  // Check if a teacher / host is already present in this room
+  const existingTeacher = Object.values(localState.players).find(
+    p => p.id !== playerId && (p.isTeacher || (localState.hostId && p.id === localState.hostId))
+  );
+
   if (playerId && localState.players[playerId]) {
     const existing = localState.players[playerId];
     existing.name = name.trim() || existing.name;
@@ -283,9 +289,14 @@ export function localJoin(
     existing.favoriteColor = favoriteColor || existing.favoriteColor;
     existing.connected = true;
     if (typeof isTeacher === 'boolean') {
-      existing.isTeacher = isTeacher;
+      if (isTeacher && existingTeacher && existing.id !== existingTeacher.id) {
+        existing.isTeacher = false;
+        existing.role = existing.id === localState.presenterId ? 'presenter' : 'student';
+      } else {
+        existing.isTeacher = isTeacher;
+      }
     }
-    if (isTeacher) {
+    if (existing.isTeacher) {
       localState.presenterId = playerId;
       existing.isPresenter = true;
     }
@@ -299,40 +310,85 @@ export function localJoin(
   }
 
   const isFirstPlayer = Object.keys(localState.players).length === 0;
-  const playerIsTeacher = typeof isTeacher === 'boolean' ? isTeacher : isFirstPlayer;
+
+  // Once one teacher joins, any other user who selects 発表者・先生 should automatically be switched to a student 生徒 role
+  let effectiveIsTeacher = false;
+  if (isFirstPlayer) {
+    effectiveIsTeacher = true;
+  } else if (existingTeacher) {
+    effectiveIsTeacher = false;
+  } else {
+    effectiveIsTeacher = Boolean(isTeacher);
+  }
+
+  if (!localState.hostId) {
+    localState.hostId = playerId;
+  }
+
+  const isTeacherRole = (localState.hostId === playerId);
+  const isPresenterRole = isTeacherRole || localState.presenterId === null;
 
   const player: Player = {
     id: playerId,
-    name: name.trim() || (playerIsTeacher ? 'Teacher' : 'Student'),
-    avatar: avatar || '🐶',
+    name: name.trim() || (isTeacherRole ? 'Teacher' : 'Student'),
+    avatar: avatar || (isTeacherRole ? '👩‍🏫' : '🐶'),
     favoriteColor: favoriteColor || 'sky',
     score: 0,
     previousRank: 0,
     currentRank: Object.keys(localState.players).length + 1,
-    isPresenter: playerIsTeacher || localState.presenterId === null,
-    isTeacher: Boolean(playerIsTeacher),
+    isPresenter: isPresenterRole,
+    isTeacher: isTeacherRole,
+    role: isTeacherRole ? 'teacher' : (isPresenterRole ? 'presenter' : 'student'),
     connected: true,
     currentGuess: null,
     guessElapsedMs: null,
     roundScore: 0,
   };
 
-  if (playerIsTeacher || localState.presenterId === null) {
+  if (localState.presenterId === null || (isTeacherRole && isFirstPlayer)) {
     localState.presenterId = playerId;
   }
 
   localState.players[playerId] = player;
+
+  // Refresh roles for all players (ensuring only 1 teacher/host exists)
+  const actualHostId = localState.hostId || playerId;
+  Object.values(localState.players).forEach(p => {
+    p.isPresenter = p.id === localState.presenterId;
+    if (p.id === actualHostId) {
+      p.role = 'teacher';
+      p.isTeacher = true;
+    } else {
+      p.isTeacher = false;
+      if (p.id === localState.presenterId) {
+        p.role = 'presenter';
+      } else {
+        p.role = 'student';
+      }
+    }
+  });
+
   updateRanks(localState.players);
   notifyListeners();
-
   return { player, state: localState };
 }
 
 export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameRoomState {
   const player = localState.players[playerId];
+  const isHost = Boolean(
+    player?.isTeacher ||
+    (localState.hostId && playerId === localState.hostId)
+  );
+  const isPresenter = Boolean(playerId === localState.presenterId);
+  const isHostOrPresenter = Boolean(
+    isHost ||
+    isPresenter ||
+    !localState.presenterId
+  );
 
   switch (msg.type) {
     case 'START_GAME': {
+      if (!isHostOrPresenter) break;
       clearLocalBotTimers();
       localState.roundIndex = 0;
       const randomizedCategories = getRandomizedCategoryOrder();
@@ -404,6 +460,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'TRIGGER_REVEAL': {
+      if (!isHostOrPresenter) break;
       if (localState.stage === 'CLASS_GUESSING') {
         clearLocalBotTimers();
         localState.stage = 'REVEAL';
@@ -414,6 +471,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'SHOW_SCOREBOARD': {
+      if (!isHostOrPresenter) break;
       if (localState.stage === 'REVEAL') {
         localState.stage = 'SCOREBOARD';
         notifyListeners();
@@ -422,6 +480,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'NEXT_ROUND': {
+      if (!isHostOrPresenter) break;
       clearLocalBotTimers();
       const nextIndex = localState.roundIndex + 1;
       if (nextIndex >= localState.categories.length) {
@@ -463,22 +522,82 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'SET_PRESENTER': {
+      if (!isHostOrPresenter) break;
       if (!localState.players[msg.playerId]) break;
+      if (botPresenterTimeout) {
+        clearTimeout(botPresenterTimeout);
+        botPresenterTimeout = null;
+      }
       localState.presenterId = msg.playerId;
       Object.values(localState.players).forEach(p => {
         p.isPresenter = p.id === msg.playerId;
+        if (p.id === localState.hostId) {
+          p.role = 'teacher';
+          p.isTeacher = true;
+        } else {
+          p.isTeacher = false;
+          if (p.isPresenter) {
+            p.role = 'presenter';
+          } else {
+            p.role = 'student';
+          }
+        }
       });
       notifyListeners();
       break;
     }
 
+    case 'TAKE_BACK_PRESENTER': {
+      if (!isHost) break;
+      if (botPresenterTimeout) {
+        clearTimeout(botPresenterTimeout);
+        botPresenterTimeout = null;
+      }
+      const targetId = playerId || localState.hostId;
+      if (targetId && localState.players[targetId]) {
+        localState.presenterId = targetId;
+        Object.values(localState.players).forEach(p => {
+          p.isPresenter = p.id === targetId;
+          if (p.id === localState.hostId) {
+            p.role = 'teacher';
+            p.isTeacher = true;
+          } else {
+            p.isTeacher = false;
+            if (p.isPresenter) {
+              p.role = 'presenter';
+            } else {
+              p.role = 'student';
+            }
+          }
+        });
+        notifyListeners();
+      }
+      break;
+    }
+
     case 'PICK_RANDOM_PRESENTER': {
+      if (!isHostOrPresenter) break;
+      if (botPresenterTimeout) {
+        clearTimeout(botPresenterTimeout);
+        botPresenterTimeout = null;
+      }
       const playerIds = Object.keys(localState.players);
       if (playerIds.length > 0) {
-        const chosenId = playerIds[Math.floor(Math.random() * playerIds.length)];
+        const studentCandidates = playerIds.filter(id => id !== localState.presenterId && !localState.players[id]?.isTeacher);
+        const otherCandidates = playerIds.filter(id => id !== localState.presenterId);
+        const pool = studentCandidates.length > 0 ? studentCandidates : (otherCandidates.length > 0 ? otherCandidates : playerIds);
+        const chosenId = pool[Math.floor(Math.random() * pool.length)];
+
         localState.presenterId = chosenId;
         Object.values(localState.players).forEach(p => {
           p.isPresenter = p.id === chosenId;
+          if (p.id === localState.hostId || p.isTeacher) {
+            p.role = 'teacher';
+          } else if (p.isPresenter) {
+            p.role = 'presenter';
+          } else {
+            p.role = 'student';
+          }
         });
         notifyListeners();
       }
@@ -486,6 +605,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'UPDATE_SETTINGS': {
+      if (!isHostOrPresenter) break;
       localState.settings = {
         ...localState.settings,
         ...msg.settings,
@@ -495,6 +615,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'ADD_DEMO_BOTS': {
+      if (!isHostOrPresenter) break;
       const count = Math.min(6, Math.max(1, msg.count || 3));
       const existingNames = new Set(Object.values(localState.players).map(p => p.name));
       const availableBots = BOT_NAMES.filter(n => !existingNames.has(n));
@@ -525,6 +646,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'REMOVE_DEMO_BOTS': {
+      if (!isHostOrPresenter) break;
       Object.keys(localState.players).forEach(id => {
         if (localState.players[id].isBot) {
           delete localState.players[id];
@@ -536,6 +658,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'END_GAME': {
+      if (!isHostOrPresenter) break;
       clearLocalBotTimers();
       localState.stage = 'GAME_OVER';
       notifyListeners();
@@ -543,6 +666,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
     }
 
     case 'RESET_GAME': {
+      if (!isHostOrPresenter) break;
       clearLocalBotTimers();
       localState.roundIndex = 0;
       const randomizedCategories = getRandomizedCategoryOrder();

@@ -11,6 +11,7 @@ interface ScoreboardViewProps {
   onNextRound: (categoryId?: CategoryId) => void;
   onPickRandomPresenter: () => void;
   onSetPresenter: (playerId: string) => void;
+  onTakeBackPresenter?: () => void;
   onEndGame?: () => void;
   onResetGame?: () => void;
 }
@@ -21,6 +22,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   onNextRound,
   onPickRandomPresenter,
   onSetPresenter,
+  onTakeBackPresenter,
   onEndGame,
   onResetGame,
 }) => {
@@ -31,6 +33,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   const nextCategory = nextCatId ? GAME_CATEGORIES[nextCatId] : null;
 
   const currentPresenter = roomState.presenterId ? roomState.players[roomState.presenterId] : null;
+  const isPresenter = Boolean(myPlayer && myPlayer.id === roomState.presenterId);
+  const isHost = Boolean(myPlayer?.isTeacher || (roomState.hostId && myPlayer?.id === roomState.hostId));
+  const canManageGame = isPresenter || isHost;
 
   // Auto-scroll / player focus tracking
   const [autoFollow, setAutoFollow] = useState<boolean>(true);
@@ -69,13 +74,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
       <div className="bg-slate-900/60 rounded-3xl border border-white/10 backdrop-blur-md p-6 sm:p-8 text-center space-y-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-black uppercase tracking-wider">
           <Trophy className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Round {roomState.roundIndex + 1} Leaderboard</span>
+          <span>第 {roomState.roundIndex + 1} ラウンド 得点ランキング</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-          Classroom Rankings
+          クラスの順位表 🏆
         </h1>
-        <p className="text-slate-400 text-sm">
-          Watch players rise and fall! Correct and fast answers push you up the leaderboard.
+        <p className="text-slate-300 text-sm">
+          せいかい＆スピードで点数アップ！ランキングの上位を目指そう！
         </p>
       </div>
 
@@ -90,11 +95,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                 {allPlayers[1].name}
               </div>
               <div className="text-xs font-mono font-black text-slate-400 mb-2">
-                {allPlayers[1].score} pts
+                {allPlayers[1].score} 点
               </div>
               <div className="w-full bg-slate-800/80 rounded-t-2xl h-20 sm:h-24 flex flex-col items-center justify-center border-t-4 border-slate-400 border-x border-white/5">
                 <span className="text-xl sm:text-2xl font-black text-slate-200">2</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Silver</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ぎん (2位)</span>
               </div>
             </div>
           )}
@@ -110,11 +115,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                 {allPlayers[0].name}
               </div>
               <div className="text-xs sm:text-sm font-mono font-black text-amber-400 mb-2">
-                {allPlayers[0].score} pts
+                {allPlayers[0].score} 点
               </div>
               <div className="w-full bg-amber-500/15 rounded-t-2xl h-28 sm:h-32 flex flex-col items-center justify-center border-t-4 border-amber-400 border-x border-amber-500/20 shadow-lg shadow-amber-500/10">
                 <span className="text-2xl sm:text-3xl font-black text-amber-300">1</span>
-                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Gold</span>
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">きん (1位)</span>
               </div>
             </div>
           )}
@@ -127,11 +132,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                 {allPlayers[2].name}
               </div>
               <div className="text-xs font-mono font-black text-orange-400/80 mb-2">
-                {allPlayers[2].score} pts
+                {allPlayers[2].score} 点
               </div>
               <div className="w-full bg-orange-950/30 rounded-t-2xl h-16 sm:h-20 flex flex-col items-center justify-center border-t-4 border-amber-700 border-x border-white/5">
                 <span className="text-lg sm:text-xl font-black text-orange-300">3</span>
-                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Bronze</span>
+                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">どう (3位)</span>
               </div>
             </div>
           )}
@@ -143,11 +148,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-sm font-black uppercase tracking-wider text-white">
-              Full Class Standings ({allPlayers.length})
+              クラスぜんいんの順位 ({allPlayers.length}人)
             </span>
             {myPlayer && (
               <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs border border-indigo-500/30">
-                You: #{myRank}
+                あなた: {myRank}位
               </span>
             )}
           </div>
@@ -159,10 +164,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                 onClick={handleScrollToMe}
                 id="jump-to-my-rank-btn"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold border border-indigo-500/30 transition cursor-pointer"
-                title="Scroll screen to focus on your player card"
+                title="自分の位置までスクロールする"
               >
                 <Target className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Follow Me</span>
+                <span>じぶんを見る</span>
               </button>
               <button
                 onClick={() => setAutoFollow(!autoFollow)}
@@ -172,18 +177,18 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                     : 'bg-slate-800 text-slate-400 border-white/10'
                 }`}
-                title="Automatically scroll the screen to keep following your position as you rise or fall"
+                title="順位が変わったときに自動で自分の場所へスクロール"
               >
                 {autoFollow ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
-                <span>{autoFollow ? 'Auto-Follow: ON' : 'Auto-Follow: OFF'}</span>
+                <span>{autoFollow ? 'じどう追跡: ON' : 'じどう追跡: OFF'}</span>
               </button>
             </div>
           )}
         </div>
 
         <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 px-4 py-1 flex items-center justify-between">
-          <span>Player & Ranking</span>
-          <span>Score & Changes</span>
+          <span>名前とじゅんい</span>
+          <span>得点とへんか</span>
         </div>
 
         <div className="space-y-2 pt-1 max-h-[580px] overflow-y-auto pr-1">
@@ -250,12 +255,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                       {player.isPresenter && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                           <Crown className="w-2.5 h-2.5 text-amber-400" />
-                          Host
+                          発表者
                         </span>
                       )}
                       {isMe && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          YOU
+                          じぶん
                         </span>
                       )}
                     </div>
@@ -265,19 +270,19 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
                 {/* Right: Round points gained & Total score */}
                 <div className="text-right shrink-0">
                   <div className="font-mono font-black text-white text-base sm:text-lg">
-                    {player.score} <span className="text-xs text-slate-400 font-normal">pts</span>
+                    {player.score} <span className="text-xs text-slate-400 font-normal">点</span>
                   </div>
                   {player.lastScoreBreakdown?.timedOut ? (
                     <div className="text-[11px] font-mono font-bold text-rose-400">
-                      Timed out (0 pts)
+                      時間切れ (0点)
                     </div>
                   ) : player.roundScore !== undefined && player.roundScore > 0 ? (
                     <div className="text-xs font-mono font-bold text-emerald-400">
-                      +{player.roundScore} this round
+                      +{player.roundScore}点 (今回)
                     </div>
                   ) : (
                     <div className="text-[11px] font-mono text-slate-500">
-                      +0 this round
+                      +0点 (今回)
                     </div>
                   )}
                 </div>
@@ -287,85 +292,144 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
         </div>
       </div>
 
-      {/* Presenter Selection & Next Round Controls */}
+      {/* Presenter Selection & Next Round Controls (Presenter/Teacher controls, Students wait) */}
       <div className="bg-slate-900/60 rounded-3xl border border-white/10 p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <Crown className="w-4 h-4 text-amber-400" />
-              Presenter for Next Round
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Current: <strong className="text-slate-200">{currentPresenter?.avatar} {currentPresenter?.name}</strong> • Pick a random student or appoint someone new!
-            </p>
-          </div>
+        {canManageGame ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  つぎの発表者
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  いまの発表者: <strong className="text-slate-200">{currentPresenter?.avatar} {currentPresenter?.name}</strong> • ランダムで決めるか、新しい人を指名してね！
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                playSelectSound();
-                onPickRandomPresenter();
-              }}
-              id="pick-random-for-next-btn"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 text-xs font-bold transition cursor-pointer"
-            >
-              <Shuffle className="w-4 h-4 text-amber-400" />
-              Pick Random Student
-            </button>
-          </div>
-        </div>
-
-        {/* Next Question & Teacher End Game Action Buttons */}
-        <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-          {/* Action buttons: Reset without results, or teacher end game */}
-          <div className="flex flex-wrap items-center gap-2">
-            {onResetGame && (
-              <button
-                onClick={() => {
-                  if (window.confirm('End the current game now (without showing results) and return everyone to the main setup screen?')) {
+              <div className="flex flex-wrap items-center gap-2">
+                {isHost && roomState.presenterId !== myPlayer?.id && (
+                  <button
+                    onClick={() => {
+                      playSelectSound();
+                      if (onTakeBackPresenter) onTakeBackPresenter();
+                      else if (myPlayer) onSetPresenter(myPlayer.id);
+                    }}
+                    id="scoreboard-take-back-presenter-btn"
+                    title="先生が発表者にもどります"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition cursor-pointer shadow-sm"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-slate-950" />
+                    👑 先生が発表者になる
+                  </button>
+                )}
+                <button
+                  onClick={() => {
                     playSelectSound();
-                    onResetGame();
-                  }
-                }}
-                id="scoreboard-reset-game-btn"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 hover:text-rose-200 font-bold text-xs sm:text-sm transition cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4 text-rose-400" />
-                <span>Reset Game (End without Results)</span>
-              </button>
-            )}
-            {(myPlayer?.isTeacher || roomState.players[myPlayer?.id || '']?.isTeacher) && onEndGame && (
-              <button
-                onClick={() => {
-                  if (window.confirm('End the game now and jump straight to the final podium and results?')) {
-                    playSelectSound();
-                    onEndGame();
-                  }
-                }}
-                id="teacher-end-game-btn"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white font-bold text-xs sm:text-sm transition cursor-pointer"
-              >
-                <Flag className="w-4 h-4 text-amber-400" />
-                <span>End Game (Show Results)</span>
-              </button>
-            )}
-          </div>
+                    onPickRandomPresenter();
+                  }}
+                  id="pick-random-for-next-btn"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 text-xs font-bold transition cursor-pointer"
+                >
+                  <Shuffle className="w-4 h-4 text-amber-400" />
+                  ランダムに選ぶ 🎲
+                </button>
+                {/* Specific student dropdown selector */}
+                <select
+                  id="scoreboard-select-presenter-dropdown"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      playSelectSound();
+                      onSetPresenter(e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-200 border border-white/10 cursor-pointer focus:outline-none focus:border-amber-500"
+                >
+                  <option value="" disabled>特定の生徒を指名...</option>
+                  {(Object.values(roomState.players) as Player[])
+                    .filter(p => p.id !== currentPresenter?.id)
+                    .map(p => (
+                      <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                        {p.avatar} {p.name} {p.isTeacher ? '(先生)' : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
 
-          <button
-            onClick={() => onNextRound(nextCatId || undefined)}
-            id="start-next-round-btn"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
-          >
-            {isFinalRound ? (
-              <span>Finish Game & Final Podium 🏆</span>
-            ) : (
-              <>
-                <span>Next Question: {nextCategory?.label} ({nextCategory?.icon})</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
-        </div>
+            {/* Next Question & Teacher End Game Action Buttons */}
+            <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+              {/* Action buttons: Reset without results, or teacher end game */}
+              <div className="flex flex-wrap items-center gap-2">
+                {onResetGame && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('結果を表示せずに、ゲームをやめて最初の画面にもどりますか？')) {
+                        playSelectSound();
+                        onResetGame();
+                      }
+                    }}
+                    id="scoreboard-reset-game-btn"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 hover:text-rose-200 font-bold text-xs sm:text-sm transition cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4 text-rose-400" />
+                    <span>ゲームをやめる (結果なし)</span>
+                  </button>
+                )}
+                {(myPlayer?.isTeacher || roomState.players[myPlayer?.id || '']?.isTeacher) && onEndGame && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('いまのゲームを終了して、さいしゅう結果発表へ進みますか？')) {
+                        playSelectSound();
+                        onEndGame();
+                      }
+                    }}
+                    id="teacher-end-game-btn"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white font-bold text-xs sm:text-sm transition cursor-pointer"
+                  >
+                    <Flag className="w-4 h-4 text-amber-400" />
+                    <span>ゲーム終了 (結果発表へ)</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => onNextRound(nextCatId || undefined)}
+                id="start-next-round-btn"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
+              >
+                {isFinalRound ? (
+                  <span>ゲーム終了！さいしゅう結果へ 🏆</span>
+                ) : (
+                  <>
+                    <span>つぎの問題: {nextCategory?.japaneseLabel || nextCategory?.label} ({nextCategory?.icon})</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Student waiting state: no admin buttons, only informational status */
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-400" />
+                つぎの発表者: {currentPresenter?.avatar} {currentPresenter?.name || '指名中'}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                つぎのしつもん: <strong className="text-indigo-300">&ldquo;What {nextCategory?.label || 'item'} do you like?&rdquo;</strong>
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-800/80 border border-white/10 text-slate-300 font-semibold text-sm">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping" />
+              <span>{currentPresenter?.name || '発表する人'}がつぎの問題をはじめるのを まってね… ⏳</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

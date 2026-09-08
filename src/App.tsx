@@ -33,6 +33,7 @@ export default function App() {
     nextRound,
     setPresenter,
     pickRandomPresenter,
+    takeBackPresenter,
     updateSettings,
     addDemoBots,
     removeDemoBots,
@@ -69,14 +70,20 @@ export default function App() {
     return () => cancelAnimationFrame(frameId);
   }, [currentStage, currentRoundIndex, isJoined]);
 
+  const isPresenter = Boolean(myPlayer && myPlayer.id === roomState?.presenterId);
+  const isHost = Boolean(myPlayer?.isTeacher || (roomState?.hostId && myPlayer?.id === roomState.hostId));
+  const canManageGame = isPresenter || isHost;
+
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAFC] flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Navbar */}
       <Navbar
         roomState={roomState}
         myPlayer={myPlayer}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onResetGame={() => resetGame(roomCode)}
+        onOpenSettings={canManageGame ? () => setIsSettingsOpen(true) : undefined}
+        onResetGame={canManageGame ? () => resetGame(roomCode) : undefined}
+        onTakeBackPresenter={() => takeBackPresenter(roomCode)}
+        onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
         isLiveConnected={isLiveConnected}
         isLocalMode={isLocalMode}
         onOpenServerModal={() => setIsServerModalOpen(true)}
@@ -86,19 +93,19 @@ export default function App() {
       {!isConnected && (
         <div className="bg-amber-500/90 text-amber-950 px-4 py-2 text-xs font-black uppercase tracking-wider text-center flex items-center justify-center gap-2 border-b border-amber-400/30">
           <WifiOff className="w-4 h-4 shrink-0" />
-          <span>Connecting to classroom server... (reconnecting automatically)</span>
+          <span>サーバーに接続中… (自動で再接続します)</span>
         </div>
       )}
 
       {isLocalMode && (
         <div className="bg-indigo-950/80 text-indigo-300 px-4 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-2 border-b border-indigo-500/20">
           <Server className="w-3.5 h-3.5 text-indigo-400" />
-          <span>In-Browser Classroom Host Mode is active. Single-screen and projector ready.</span>
+          <span>ブラウザ内ホストモードで動作中（電子黒板・プロジェクター単画面に対応）</span>
           <button
             onClick={() => setIsServerModalOpen(true)}
             className="underline font-bold text-white hover:text-indigo-200 cursor-pointer ml-1"
           >
-            Connect external server for multi-device play &rarr;
+            生徒のタブレットと接続する設定 &rarr;
           </button>
         </div>
       )}
@@ -120,6 +127,7 @@ export default function App() {
             onLeaveRoom={leaveRoom}
             onStartGame={() => startGame(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
+            onTakeBackPresenter={() => takeBackPresenter(roomCode)}
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
             onUpdateSettings={(settings) => updateSettings(roomCode, settings)}
             onAddBots={(count) => addDemoBots(roomCode, count)}
@@ -134,6 +142,7 @@ export default function App() {
             onChooseOption={(optId) => makePresenterChoice(roomCode, optId)}
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
+            onTakeBackPresenter={() => takeBackPresenter(roomCode)}
           />
         )}
 
@@ -161,6 +170,7 @@ export default function App() {
             onNextRound={(catId) => nextRound(roomCode, catId)}
             onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
             onSetPresenter={(pId) => setPresenter(roomCode, pId)}
+            onTakeBackPresenter={() => takeBackPresenter(roomCode)}
             onEndGame={() => endGame(roomCode)}
             onResetGame={() => resetGame(roomCode)}
           />
@@ -210,7 +220,7 @@ export default function App() {
       </footer>
 
       {/* Teacher / Classroom Settings Modal */}
-      {roomState && (
+      {roomState && canManageGame && (
         <TeacherSettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}

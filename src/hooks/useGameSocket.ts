@@ -394,6 +394,10 @@ export function useGameSocket() {
     send({ type: 'SET_PRESENTER', roomCode, playerId });
   }, [send]);
 
+  const takeBackPresenter = useCallback((roomCode: string) => {
+    send({ type: 'TAKE_BACK_PRESENTER', roomCode });
+  }, [send]);
+
   const pickRandomPresenter = useCallback((roomCode: string) => {
     send({ type: 'PICK_RANDOM_PRESENTER', roomCode });
   }, [send]);
@@ -447,6 +451,7 @@ export function useGameSocket() {
     showScoreboard,
     nextRound,
     setPresenter,
+    takeBackPresenter,
     pickRandomPresenter,
     updateSettings,
     addDemoBots,
