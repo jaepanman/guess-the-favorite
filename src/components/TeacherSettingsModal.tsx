@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server, Flag, LogOut } from 'lucide-react';
+import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server, Flag, LogOut, QrCode } from 'lucide-react';
 import { GameRoomState, CategoryId, Player } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -18,6 +18,7 @@ interface TeacherSettingsModalProps {
   onCloseRoom?: () => void;
   onJumpToCategory: (catId: CategoryId) => void;
   onOpenServerModal?: () => void;
+  onOpenShareModal?: () => void;
 }
 
 export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
@@ -34,6 +35,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
   onCloseRoom,
   onJumpToCategory,
   onOpenServerModal,
+  onOpenShareModal,
 }) => {
   if (!isOpen) return null;
 
@@ -61,6 +63,35 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Student URL & QR Code Share Quick Action */}
+        {onOpenShareModal && (
+          <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">
+                <QrCode className="w-5 h-5" />
+              </span>
+              <div>
+                <div className="text-xs font-black text-indigo-200">
+                  生徒用URL &amp; QRコードの表示
+                </div>
+                <div className="text-[11px] text-indigo-300/80">
+                  遅れてきた生徒や再読み込みしたタブレットにQRコードを表示
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                onClose();
+                onOpenShareModal();
+              }}
+              id="settings-open-share-modal-btn"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shrink-0 cursor-pointer shadow-sm"
+            >
+              QRコードを開く
+            </button>
+          </div>
+        )}
 
         {/* Presenter Rotation Controls */}
         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">

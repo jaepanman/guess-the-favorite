@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles, RotateCcw, Shuffle, UserCheck, LogOut } from 'lucide-react';
+import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles, RotateCcw, Shuffle, UserCheck, LogOut, QrCode } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { speakEnglishPhrase } from '../utils/soundEffects';
 
 interface NavbarProps {
   roomState: GameRoomState | null;
   myPlayer: Player | undefined;
+  routeMode?: 'teacher' | 'student';
+  onOpenShareModal?: () => void;
   onOpenSettings?: () => void;
   onResetGame?: () => void;
   onLeaveRoom?: () => void;
@@ -19,6 +21,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   roomState,
   myPlayer,
+  routeMode,
+  onOpenShareModal,
   onOpenSettings,
   onResetGame,
   onLeaveRoom,
@@ -80,14 +84,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Middle: Join Code pill & Server Status */}
+        {/* Middle: Join Code pill, QR share & Server Status */}
         <div className="flex items-center gap-2">
           {roomState && (
             <button
               onClick={handleCopyCode}
               id="copy-room-code-btn"
               title="クリックして部屋のコードをコピー"
-              className="flex items-center gap-2.5 bg-slate-900/60 hover:bg-slate-900 px-3.5 py-1.5 sm:py-2 rounded-lg border border-white/10 transition cursor-pointer"
+              className="flex items-center gap-2 bg-slate-900/60 hover:bg-slate-900 px-3 py-1.5 sm:py-2 rounded-lg border border-white/10 transition cursor-pointer"
             >
               <span className="text-[11px] font-black text-slate-400 tracking-wider">へや番号:</span>
               <span className="text-base sm:text-lg font-mono font-black text-indigo-300 tracking-wider">
@@ -98,6 +102,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               ) : (
                 <Copy className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
               )}
+            </button>
+          )}
+
+          {/* Quick QR & Student URL Modal button (available to host or teacher view) */}
+          {onOpenShareModal && (isHost || routeMode === 'teacher') && (
+            <button
+              onClick={onOpenShareModal}
+              id="navbar-open-share-modal-btn"
+              title="生徒用URL & QRコードを表示"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-bold transition cursor-pointer"
+            >
+              <QrCode className="w-3.5 h-3.5 text-indigo-300" />
+              <span className="hidden sm:inline">生徒用URL・QR</span>
             </button>
           )}
 
@@ -121,7 +138,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-indigo-400'
                   : 'bg-amber-400 animate-ping'
               }`} />
-              <span>{isLiveConnected ? 'サーバー通信中' : isLocalMode ? '教室ホスト' : 'せつぞく中...'}</span>
+              <span>{isLiveConnected ? '通信中' : isLocalMode ? '教室ホスト' : 'せつぞく中...'}</span>
             </button>
           )}
         </div>

@@ -9,8 +9,10 @@ import { ScoreboardView } from './components/ScoreboardView';
 import { GameOverView } from './components/GameOverView';
 import { TeacherSettingsModal } from './components/TeacherSettingsModal';
 import { ServerConnectionModal } from './components/ServerConnectionModal';
-import { WifiOff, AlertCircle, Server } from 'lucide-react';
+import { StudentShareModal } from './components/StudentShareModal';
+import { WifiOff, AlertCircle, Server, QrCode } from 'lucide-react';
 import { CategoryId } from './types';
+import { getRouteMode, RouteMode } from './utils/routeUtils';
 
 export default function App() {
   const {
@@ -43,6 +45,24 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [routeMode, setRouteMode] = useState<RouteMode>(() => getRouteMode());
+
+  // Listen to browser hash changes (e.g. #/teacher, #/student)
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRouteMode(getRouteMode());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleSwitchRouteMode = (newMode: RouteMode) => {
+    setRouteMode(newMode);
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#/${newMode}`;
+    }
+  };
 
   // Active room code helper
   const roomCode = roomState?.code || 'EFL1';
@@ -65,7 +85,6 @@ export default function App() {
     };
 
     scrollToTop();
-    // Re-verify after frame renders in case of asynchronous layout reflow
     const frameId = requestAnimationFrame(scrollToTop);
     return () => cancelAnimationFrame(frameId);
   }, [currentStage, currentRoundIndex, isJoined]);
@@ -80,6 +99,8 @@ export default function App() {
       <Navbar
         roomState={roomState}
         myPlayer={myPlayer}
+        routeMode={routeMode}
+        onOpenShareModal={() => setIsShareModalOpen(true)}
         onOpenSettings={canManageGame ? () => setIsSettingsOpen(true) : undefined}
         onResetGame={canManageGame ? () => resetGame(roomCode) : undefined}
         onLeaveRoom={leaveRoom}
@@ -89,6 +110,27 @@ export default function App() {
         isLocalMode={isLocalMode}
         onOpenServerModal={() => setIsServerModalOpen(true)}
       />
+
+      {/* Route Mode Info Banner (Only in Lobby and before joining) */}
+      {!myPlayer && (
+        <div className={`px-4 py-1.5 text-xs font-bold text-center flex items-center justify-center gap-2 border-b ${
+          routeMode === 'teacher'
+            ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+            : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
+        }`}>
+          <span>
+            {routeMode === 'teacher'
+              ? '👑 先生専用セットアップページ (/#/teacher) を表示中'
+              : '🎒 生徒用参加画面 (/#/student) を表示中'}
+          </span>
+          <button
+            onClick={() => handleSwitchRouteMode(routeMode === 'teacher' ? 'student' : 'teacher')}
+            className="underline font-bold text-white hover:text-indigo-200 cursor-pointer ml-1"
+          >
+            {routeMode === 'teacher' ? '生徒用画面へ' : '先生用画面へ'} &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Connection State Alert */}
       {!isConnected && (
@@ -124,6 +166,9 @@ export default function App() {
           <LobbyView
             roomState={roomState}
             myPlayer={myPlayer}
+            routeMode={routeMode}
+            onSwitchRouteMode={handleSwitchRouteMode}
+            onOpenShareModal={() => setIsShareModalOpen(true)}
             onJoin={(code, name, avatar, color, isTeacher) => joinRoom(code, name, avatar, color, isTeacher)}
             onLeaveRoom={leaveRoom}
             onStartGame={() => startGame(roomCode)}
@@ -197,8 +242,20 @@ export default function App() {
               {playersList.length} {playersList.length === 1 ? 'Student' : 'Students'} Live
             </span>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-400">
-            <span>AUTO-ROTATE HOST:</span>
+
+          {(isHost || routeMode === 'teacher') && (
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              id="footer-open-share-modal-btn"
+              className="hidden sm:flex items-center gap-1.5 text-[10px] font-black text-indigo-300 hover:text-white transition cursor-pointer"
+            >
+              <QrCode className="w-3.5 h-3.5 text-indigo-400" />
+              <span>生徒用URL &amp; QRコード</span>
+            </button>
+          )}
+
+          <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
+            <span>AUTO-ROTATE:</span>
             <span className={roomState?.settings.autoRandomPresenter ? 'text-indigo-400 font-black' : 'text-slate-500'}>
               {roomState?.settings.autoRandomPresenter ? 'ENABLED' : 'OFF'}
             </span>
@@ -228,6 +285,7 @@ export default function App() {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           roomState={roomState}
+          onOpenShareModal={() => setIsShareModalOpen(true)}
           onUpdateSettings={(settings) => updateSettings(roomCode, settings)}
           onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
           onSetPresenter={(pId) => setPresenter(roomCode, pId)}
@@ -240,6 +298,13 @@ export default function App() {
           onOpenServerModal={() => setIsServerModalOpen(true)}
         />
       )}
+
+      {/* Student Share & QR Code Modal */}
+      <StudentShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        roomCode={roomCode}
+      />
 
       {/* Multiplayer Server Connection Modal */}
       <ServerConnectionModal

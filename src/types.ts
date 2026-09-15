@@ -111,6 +111,7 @@ export type ClientMessage =
   | { type: 'RESET_GAME'; roomCode: string }
   | { type: 'LEAVE_ROOM'; roomCode: string; playerId: string }
   | { type: 'CLOSE_ROOM'; roomCode: string }
+  | { type: 'SUBSCRIBE_ROOM'; roomCode: string }
   | { type: 'PING' };
 
 export type ServerMessage =

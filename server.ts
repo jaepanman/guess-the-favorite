@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: GameSettings = {
 interface ServerRoom {
   state: GameRoomState;
   sockets: Map<string, WebSocket>;
+  lobbySockets?: Set<WebSocket>;
   botIntervals?: NodeJS.Timeout[];
   revealTimeout?: NodeJS.Timeout;
   botPresenterTimeout?: NodeJS.Timeout;
@@ -71,6 +72,7 @@ function getOrCreateRoom(code: string): ServerRoom {
     room = {
       state,
       sockets: new Map<string, WebSocket>(),
+      lobbySockets: new Set<WebSocket>(),
     };
     rooms.set(normalizedCode, room);
   }
@@ -82,6 +84,15 @@ function broadcastToRoom(room: ServerRoom, message: ServerMessage) {
   for (const socket of room.sockets.values()) {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(payload);
+    }
+  }
+  if (room.lobbySockets) {
+    for (const socket of room.lobbySockets) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(payload);
+      } else {
+        room.lobbySockets.delete(socket);
+      }
     }
   }
 }
@@ -962,6 +973,17 @@ wss.on('connection', (ws: WebSocket) => {
         return;
       }
 
+      if (msg.type === 'SUBSCRIBE_ROOM') {
+        const room = getOrCreateRoom(msg.roomCode || 'EFL1');
+        currentRoomCode = room.state.code;
+        if (!room.lobbySockets) {
+          room.lobbySockets = new Set<WebSocket>();
+        }
+        room.lobbySockets.add(ws);
+        ws.send(JSON.stringify({ type: 'ROOM_STATE', state: room.state }));
+        return;
+      }
+
       if (msg.type === 'JOIN_ROOM') {
         const { room, player } = handleJoin(
           msg.roomCode,
@@ -1024,14 +1046,19 @@ wss.on('connection', (ws: WebSocket) => {
   });
 
   ws.on('close', () => {
-    if (currentRoomCode && currentPlayerId) {
+    if (currentRoomCode) {
       const room = rooms.get(currentRoomCode);
       if (room) {
-        room.sockets.delete(currentPlayerId);
-        if (room.state.players[currentPlayerId]) {
-          room.state.players[currentPlayerId].connected = false;
+        if (room.lobbySockets) {
+          room.lobbySockets.delete(ws);
         }
-        broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+        if (currentPlayerId) {
+          room.sockets.delete(currentPlayerId);
+          if (room.state.players[currentPlayerId]) {
+            room.state.players[currentPlayerId].connected = false;
+          }
+          broadcastToRoom(room, { type: 'ROOM_STATE', state: room.state });
+        }
       }
     }
   });

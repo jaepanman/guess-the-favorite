@@ -148,7 +148,7 @@ export function useGameSocket() {
         setIsLocalMode(false);
         setError(null);
 
-        // Attempt reconnection if previous session exists
+        // Attempt reconnection if previous session exists, otherwise subscribe to room updates
         const savedPlayerId = localStorage.getItem('efl_player_id');
         const savedRoomCode = localStorage.getItem('efl_room_code') || 'EFL1';
         if (savedPlayerId) {
@@ -157,6 +157,13 @@ export function useGameSocket() {
               type: 'RECONNECT',
               roomCode: savedRoomCode,
               playerId: savedPlayerId,
+            })
+          );
+        } else {
+          ws.send(
+            JSON.stringify({
+              type: 'SUBSCRIBE_ROOM',
+              roomCode: savedRoomCode,
             })
           );
         }
