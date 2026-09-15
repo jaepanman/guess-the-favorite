@@ -176,11 +176,16 @@ export function useGameSocket() {
               }
               return prevId;
             });
+          } else if (msg.type === 'ROOM_CLOSED') {
+            localStorage.removeItem('efl_player_id');
+            setMyPlayerId(null);
+            setError(msg.message);
           } else if (msg.type === 'JOIN_SUCCESS') {
             setMyPlayerId(msg.playerId);
             localStorage.setItem('efl_player_id', msg.playerId);
             localStorage.setItem('efl_room_code', msg.state.code);
             setRoomState(msg.state);
+            setError(null);
           } else if (msg.type === 'ERROR') {
             setError(msg.message);
           }
@@ -422,13 +427,60 @@ export function useGameSocket() {
     send({ type: 'RESET_GAME', roomCode });
   }, [send]);
 
-  const leaveRoom = useCallback(() => {
-    localStorage.removeItem('efl_player_id');
-    setMyPlayerId(null);
-  }, []);
-
   // Current player identification
   const myPlayer: Player | undefined = roomState && myPlayerId ? roomState.players[myPlayerId] : undefined;
+
+  const leaveRoom = useCallback(() => {
+    const currentCode = roomState?.code || localStorage.getItem('efl_room_code') || 'EFL1';
+    const currentId = myPlayerId || localStorage.getItem('efl_player_id');
+    const isHost = Boolean(
+      (myPlayer && (myPlayer.isTeacher || myPlayer.role === 'teacher')) ||
+      (roomState?.hostId && currentId && roomState.hostId === currentId)
+    );
+
+    if (isHost) {
+      // When the host leaves, close and disband the lobby
+      send({ type: 'CLOSE_ROOM', roomCode: currentCode });
+      setRoomState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          hostId: null,
+          presenterId: null,
+          presenterChoice: null,
+          stage: 'LOBBY',
+          players: {},
+          roundHistory: [],
+          lastRoundResult: null,
+        };
+      });
+    } else if (currentId) {
+      send({ type: 'LEAVE_ROOM', roomCode: currentCode, playerId: currentId });
+    }
+
+    localStorage.removeItem('efl_player_id');
+    setMyPlayerId(null);
+  }, [myPlayer, myPlayerId, roomState?.code, roomState?.hostId, send]);
+
+  const closeRoom = useCallback((roomCode?: string) => {
+    const targetCode = roomCode || roomState?.code || localStorage.getItem('efl_room_code') || 'EFL1';
+    send({ type: 'CLOSE_ROOM', roomCode: targetCode });
+    localStorage.removeItem('efl_player_id');
+    setMyPlayerId(null);
+    setRoomState((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        hostId: null,
+        presenterId: null,
+        presenterChoice: null,
+        stage: 'LOBBY',
+        players: {},
+        roundHistory: [],
+        lastRoundResult: null,
+      };
+    });
+  }, [roomState?.code, send]);
 
   return {
     isConnected: isLiveConnected || isLocalMode,
@@ -444,6 +496,7 @@ export function useGameSocket() {
     error,
     joinRoom,
     leaveRoom,
+    closeRoom,
     startGame,
     makePresenterChoice,
     submitGuess,

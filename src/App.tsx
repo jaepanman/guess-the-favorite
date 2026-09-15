@@ -82,6 +82,7 @@ export default function App() {
         myPlayer={myPlayer}
         onOpenSettings={canManageGame ? () => setIsSettingsOpen(true) : undefined}
         onResetGame={canManageGame ? () => resetGame(roomCode) : undefined}
+        onLeaveRoom={leaveRoom}
         onTakeBackPresenter={() => takeBackPresenter(roomCode)}
         onPickRandomPresenter={() => pickRandomPresenter(roomCode)}
         isLiveConnected={isLiveConnected}
@@ -173,6 +174,7 @@ export default function App() {
             onTakeBackPresenter={() => takeBackPresenter(roomCode)}
             onEndGame={() => endGame(roomCode)}
             onResetGame={() => resetGame(roomCode)}
+            onUpdateSettings={(settings) => updateSettings(roomCode, settings)}
           />
         )}
 
@@ -181,6 +183,7 @@ export default function App() {
             roomState={roomState}
             myPlayer={myPlayer}
             onResetGame={() => resetGame(roomCode)}
+            onLeaveRoom={leaveRoom}
           />
         )}
       </main>
@@ -232,6 +235,7 @@ export default function App() {
           onRemoveBots={() => removeDemoBots(roomCode)}
           onEndGame={() => endGame(roomCode)}
           onResetGame={() => resetGame(roomCode)}
+          onCloseRoom={leaveRoom}
           onJumpToCategory={(catId: CategoryId) => nextRound(roomCode, catId)}
           onOpenServerModal={() => setIsServerModalOpen(true)}
         />

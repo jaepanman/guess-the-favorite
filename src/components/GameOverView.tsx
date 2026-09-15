@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, Award, Star, Zap, Crown, UserCheck, Volume2 } from 'lucide-react';
+import { Trophy, RotateCcw, Award, Star, Zap, Crown, UserCheck, Volume2, LogOut } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { playCelebrationSound, speakEnglishPhrase } from '../utils/soundEffects';
 
@@ -8,16 +8,25 @@ interface GameOverViewProps {
   roomState: GameRoomState;
   myPlayer: Player | undefined;
   onResetGame: () => void;
+  onLeaveRoom?: () => void;
 }
 
 export const GameOverView: React.FC<GameOverViewProps> = ({
   roomState,
   myPlayer,
   onResetGame,
+  onLeaveRoom,
 }) => {
-  const allPlayers: Player[] = (Object.values(roomState.players) as Player[]).sort((a, b) => b.score - a.score);
+  const isTeacherPlayer = (p: Player) => Boolean(p.isTeacher || (roomState.hostId && p.id === roomState.hostId) || p.role === 'teacher');
+  const allPlayers: Player[] = (Object.values(roomState.players) as Player[])
+    .filter(p => roomState.settings.teacherEarnsPoints !== false || !isTeacherPlayer(p))
+    .sort((a, b) => b.score - a.score);
+
   const champion = allPlayers[0];
-  const myRank = myPlayer ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1 : 0;
+  const isMyPlayerTeacher = Boolean(myPlayer && isTeacherPlayer(myPlayer));
+  const myRank = myPlayer && (!isMyPlayerTeacher || roomState.settings.teacherEarnsPoints)
+    ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1
+    : 0;
   const roundsPlayed = roomState.roundIndex + 1;
 
   // Trigger celebration on mount (No auto-reading; user/teacher clicks speaker icon to play)
@@ -78,11 +87,18 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
 
         {/* My placement pill */}
         {myPlayer && (
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-sm">
-            <span>あなた ({myPlayer.avatar} {myPlayer.name}):</span>
-            <span className="font-mono font-black text-white">第 {myRank} 位</span>
-            <span>({myPlayer.score} 点)</span>
-          </div>
+          isMyPlayerTeacher && roomState.settings.teacherEarnsPoints === false ? (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-sm">
+              <span>あなた ({myPlayer.avatar} {myPlayer.name}):</span>
+              <span className="font-bold text-white">👑 先生・見守りホスト（ランキング対象外）</span>
+            </div>
+          ) : (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-sm">
+              <span>あなた ({myPlayer.avatar} {myPlayer.name}):</span>
+              <span className="font-mono font-black text-white">第 {myRank} 位</span>
+              <span>({myPlayer.score} 点)</span>
+            </div>
+          )
         )}
 
         {/* Final Standings List */}
@@ -122,16 +138,42 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
           </div>
         </div>
 
-        {/* Reset / Play Again Button */}
-        <div className="mt-8">
+        {/* Reset / Play Again & Return to Main Buttons */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
             onClick={onResetGame}
             id="play-again-btn"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base shadow-lg shadow-indigo-600/25 transition cursor-pointer"
           >
             <RotateCcw className="w-5 h-5" />
-            <span>もう一度あそぶ (はじめの画面へ)</span>
+            <span>もう一度あそぶ (ロビーへ)</span>
           </button>
+
+          {onLeaveRoom && (
+            <button
+              onClick={() => {
+                const isHost = Boolean(myPlayer?.isTeacher || (roomState.hostId && myPlayer?.id === roomState.hostId) || myPlayer?.role === 'teacher');
+                if (isHost) {
+                  if (window.confirm('メイン画面に戻りますか？\n先生がメイン画面に戻ると、この部屋（ロビー）は終了・解散され、生徒もメイン画面に戻ります。')) {
+                    onLeaveRoom();
+                  }
+                } else {
+                  if (window.confirm('メイン画面に戻りますか？（部屋から退出します）')) {
+                    onLeaveRoom();
+                  }
+                }
+              }}
+              id="gameover-leave-btn"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-sm border border-white/10 transition cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 text-rose-400" />
+              <span>
+                {Boolean(myPlayer?.isTeacher || (roomState.hostId && myPlayer?.id === roomState.hostId) || myPlayer?.role === 'teacher')
+                  ? 'メイン画面へ戻る (部屋を閉じる)'
+                  : 'メイン画面へ戻る (退出)'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>

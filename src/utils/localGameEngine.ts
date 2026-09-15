@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   hostCompensationPerWrong: 150,
   baseCorrectPoints: 500,
   maxSpeedBonus: 500,
+  teacherEarnsPoints: false,
 };
 
 const BOT_NAMES = ['Leo', 'Sophia', 'Kenji', 'Maya', 'Liam', 'Emma', 'Carlos', 'Yuki'];
@@ -64,18 +65,41 @@ function createInitialState(code: string): GameRoomState {
   };
 }
 
-function updateRanks(players: Record<string, Player>) {
+function updateRanks(players: Record<string, Player>, hostId?: string | null, teacherEarnsPoints: boolean = false) {
   const playerList = Object.values(players);
-  playerList.sort((a, b) => b.score - a.score);
-  playerList.forEach((player, index) => {
-    const newRank = index + 1;
-    if (player.previousRank === 0) {
-      player.previousRank = newRank;
-    } else {
-      player.previousRank = player.currentRank;
-    }
-    player.currentRank = newRank;
-  });
+
+  if (teacherEarnsPoints === false) {
+    const students = playerList.filter(p => !p.isTeacher && p.role !== 'teacher' && (!hostId || p.id !== hostId));
+    students.sort((a, b) => b.score - a.score);
+    students.forEach((player, index) => {
+      const newRank = index + 1;
+      if (player.previousRank === 0) {
+        player.previousRank = newRank;
+      } else {
+        player.previousRank = player.currentRank;
+      }
+      player.currentRank = newRank;
+    });
+
+    const teachers = playerList.filter(p => p.isTeacher || p.role === 'teacher' || (hostId && p.id === hostId));
+    teachers.forEach(t => {
+      t.score = 0;
+      t.roundScore = 0;
+      t.currentRank = 0;
+      t.previousRank = 0;
+    });
+  } else {
+    playerList.sort((a, b) => b.score - a.score);
+    playerList.forEach((player, index) => {
+      const newRank = index + 1;
+      if (player.previousRank === 0) {
+        player.previousRank = newRank;
+      } else {
+        player.previousRank = player.currentRank;
+      }
+      player.currentRank = newRank;
+    });
+  }
 }
 
 function clearLocalBotTimers() {
@@ -105,6 +129,14 @@ function calculateRoundScores() {
 
   Object.values(localState.players).forEach(player => {
     if (player.id === localState.presenterId) return;
+
+    const isTeacher = Boolean(player.isTeacher || player.role === 'teacher' || (localState.hostId && player.id === localState.hostId));
+    if (isTeacher && localState.settings.teacherEarnsPoints === false) {
+      player.score = 0;
+      player.roundScore = 0;
+      player.lastScoreBreakdown = undefined;
+      return;
+    }
 
     const guess = player.currentGuess;
     const elapsed = player.guessElapsedMs;
@@ -162,7 +194,11 @@ function calculateRoundScores() {
 
   // Host compensation points
   let hostPointsEarned = 0;
-  if (presenter && localState.settings.hostCompensation) {
+  const isTeacherPresenter = Boolean(
+    presenter && (presenter.isTeacher || presenter.role === 'teacher' || (localState.hostId && presenter.id === localState.hostId))
+  );
+
+  if (presenter && localState.settings.hostCompensation && (!isTeacherPresenter || localState.settings.teacherEarnsPoints !== false)) {
     const wrongBonus = incorrectGuessesCount * localState.settings.hostCompensationPerWrong;
     const baseHostBonus = 200;
     hostPointsEarned = wrongBonus + baseHostBonus;
@@ -175,9 +211,16 @@ function calculateRoundScores() {
       incorrectCount: incorrectGuessesCount,
       isCorrect: true,
     };
+  } else if (isTeacherPresenter && localState.settings.teacherEarnsPoints === false) {
+    hostPointsEarned = 0;
+    if (presenter) {
+      presenter.score = 0;
+      presenter.roundScore = 0;
+      presenter.lastScoreBreakdown = undefined;
+    }
   }
 
-  updateRanks(localState.players);
+  updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
 
   const roundResult: RoundResult = {
     roundNumber: localState.roundIndex + 1,
@@ -278,9 +321,11 @@ export function localJoin(
   let playerId = existingPlayerId;
 
   // Check if a teacher / host is already present in this room
+  const activeHostPlayer = localState.hostId ? localState.players[localState.hostId] : undefined;
   const existingTeacher = Object.values(localState.players).find(
-    p => p.id !== playerId && (p.isTeacher || (localState.hostId && p.id === localState.hostId))
+    p => p.id !== playerId && (p.isTeacher || p.role === 'teacher' || (localState.hostId && p.id === localState.hostId))
   );
+  const hasActiveHost = Boolean(existingTeacher || activeHostPlayer);
 
   if (playerId && localState.players[playerId]) {
     const existing = localState.players[playerId];
@@ -288,19 +333,31 @@ export function localJoin(
     existing.avatar = avatar || existing.avatar;
     existing.favoriteColor = favoriteColor || existing.favoriteColor;
     existing.connected = true;
-    if (typeof isTeacher === 'boolean') {
-      if (isTeacher && existingTeacher && existing.id !== existingTeacher.id) {
+
+    // Retain host if player was already host
+    const isAlreadyHost = existing.id === localState.hostId || existing.isTeacher;
+    if (isAlreadyHost) {
+      existing.isTeacher = true;
+      existing.role = 'teacher';
+      localState.hostId = existing.id;
+      if (!localState.presenterId) {
+        localState.presenterId = existing.id;
+      }
+    } else if (typeof isTeacher === 'boolean') {
+      if (isTeacher && !hasActiveHost) {
+        existing.isTeacher = true;
+        existing.role = 'teacher';
+        localState.hostId = existing.id;
+      } else {
         existing.isTeacher = false;
         existing.role = existing.id === localState.presenterId ? 'presenter' : 'student';
-      } else {
-        existing.isTeacher = isTeacher;
       }
     }
     if (existing.isTeacher) {
       localState.presenterId = playerId;
       existing.isPresenter = true;
     }
-    updateRanks(localState.players);
+    updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
     notifyListeners();
     return { player: existing, state: localState };
   }
@@ -309,24 +366,25 @@ export function localJoin(
     playerId = 'p_' + Math.random().toString(36).substring(2, 9);
   }
 
-  const isFirstPlayer = Object.keys(localState.players).length === 0;
-
-  // Once one teacher joins, any other user who selects 発表者・先生 should automatically be switched to a student 生徒 role
+  // Determine if this player should be teacher/host
   let effectiveIsTeacher = false;
-  if (isFirstPlayer) {
-    effectiveIsTeacher = true;
-  } else if (existingTeacher) {
-    effectiveIsTeacher = false;
+  if (isTeacher) {
+    if (!hasActiveHost) {
+      effectiveIsTeacher = true;
+    } else {
+      effectiveIsTeacher = false;
+    }
   } else {
-    effectiveIsTeacher = Boolean(isTeacher);
+    // User explicitly chose Student: NEVER make them teacher
+    effectiveIsTeacher = false;
   }
 
-  if (!localState.hostId) {
+  if (effectiveIsTeacher) {
     localState.hostId = playerId;
   }
 
-  const isTeacherRole = (localState.hostId === playerId);
-  const isPresenterRole = isTeacherRole || localState.presenterId === null;
+  const isTeacherRole = effectiveIsTeacher;
+  const isPresenterRole = isTeacherRole || (localState.presenterId === null && isTeacherRole);
 
   const player: Player = {
     id: playerId,
@@ -345,17 +403,17 @@ export function localJoin(
     roundScore: 0,
   };
 
-  if (localState.presenterId === null || (isTeacherRole && isFirstPlayer)) {
+  if (localState.presenterId === null || isTeacherRole) {
     localState.presenterId = playerId;
   }
 
   localState.players[playerId] = player;
 
   // Refresh roles for all players (ensuring only 1 teacher/host exists)
-  const actualHostId = localState.hostId || playerId;
+  const actualHostId = localState.hostId;
   Object.values(localState.players).forEach(p => {
     p.isPresenter = p.id === localState.presenterId;
-    if (p.id === actualHostId) {
+    if (actualHostId && p.id === actualHostId) {
       p.role = 'teacher';
       p.isTeacher = true;
     } else {
@@ -368,7 +426,7 @@ export function localJoin(
     }
   });
 
-  updateRanks(localState.players);
+  updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
   notifyListeners();
   return { player, state: localState };
 }
@@ -610,6 +668,17 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
         ...localState.settings,
         ...msg.settings,
       };
+      if (localState.settings.teacherEarnsPoints === false) {
+        Object.values(localState.players).forEach(p => {
+          if (p.isTeacher || p.role === 'teacher' || (localState.hostId && p.id === localState.hostId)) {
+            p.score = 0;
+            p.roundScore = 0;
+            p.currentRank = 0;
+            p.previousRank = 0;
+          }
+        });
+      }
+      updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
       notifyListeners();
       break;
     }
@@ -640,7 +709,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
           roundScore: 0,
         };
       }
-      updateRanks(localState.players);
+      updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
       notifyListeners();
       break;
     }
@@ -652,7 +721,7 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
           delete localState.players[id];
         }
       });
-      updateRanks(localState.players);
+      updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
       notifyListeners();
       break;
     }
@@ -688,6 +757,45 @@ export function dispatchLocalAction(playerId: string, msg: ClientMessage): GameR
         p.lastScoreBreakdown = undefined;
       });
 
+      notifyListeners();
+      break;
+    }
+
+    case 'CLOSE_ROOM': {
+      if (!isHost) break;
+      clearLocalBotTimers();
+      localState.hostId = null;
+      localState.presenterId = null;
+      localState.presenterChoice = null;
+      localState.guessPhaseStartTime = null;
+      localState.stage = 'LOBBY';
+      localState.players = {};
+      localState.roundIndex = 0;
+      localState.roundHistory = [];
+      localState.lastRoundResult = null;
+      notifyListeners();
+      break;
+    }
+
+    case 'LEAVE_ROOM': {
+      if (isHost) {
+        clearLocalBotTimers();
+        localState.hostId = null;
+        localState.presenterId = null;
+        localState.presenterChoice = null;
+        localState.guessPhaseStartTime = null;
+        localState.stage = 'LOBBY';
+        localState.players = {};
+        localState.roundIndex = 0;
+        localState.roundHistory = [];
+        localState.lastRoundResult = null;
+      } else {
+        delete localState.players[playerId];
+        if (localState.presenterId === playerId) {
+          localState.presenterId = localState.hostId || null;
+        }
+        updateRanks(localState.players, localState.hostId, localState.settings.teacherEarnsPoints);
+      }
       notifyListeners();
       break;
     }

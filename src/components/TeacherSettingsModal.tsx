@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server, Flag } from 'lucide-react';
+import { X, Shuffle, Plus, Trash2, Crown, RotateCcw, Clock, Shield, Sparkles, Server, Flag, LogOut } from 'lucide-react';
 import { GameRoomState, CategoryId, Player } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
@@ -15,6 +15,7 @@ interface TeacherSettingsModalProps {
   onRemoveBots: () => void;
   onEndGame?: () => void;
   onResetGame: () => void;
+  onCloseRoom?: () => void;
   onJumpToCategory: (catId: CategoryId) => void;
   onOpenServerModal?: () => void;
 }
@@ -30,6 +31,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
   onRemoveBots,
   onEndGame,
   onResetGame,
+  onCloseRoom,
   onJumpToCategory,
   onOpenServerModal,
 }) => {
@@ -131,6 +133,34 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             />
           </label>
 
+          {/* Teacher Points & Ranking Participation Toggle */}
+          <label className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 cursor-pointer hover:bg-indigo-950/60 transition">
+            <div className="pr-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">
+                  先生の得点・ランキング参加
+                </span>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  roomState.settings.teacherEarnsPoints
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {roomState.settings.teacherEarnsPoints ? 'ON（得点あり）' : 'OFF（対象外・生徒のみ）'}
+                </span>
+              </div>
+              <div className="text-xs text-slate-300 mt-1 leading-relaxed">
+                OFFにすると、先生がずっと発表者でも得点を獲得せず、順位表や表彰台から除外され、生徒だけのランキングになります
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              id="teacher-earns-points-toggle"
+              checked={roomState.settings.teacherEarnsPoints ?? false}
+              onChange={(e) => onUpdateSettings({ teacherEarnsPoints: e.target.checked })}
+              className="w-5 h-5 accent-indigo-500 rounded cursor-pointer shrink-0"
+            />
+          </label>
+
           {/* Host compensation toggle */}
           <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-800/60 border border-white/10 cursor-pointer hover:bg-slate-800/90 transition">
             <div>
@@ -138,7 +168,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
                 発表者だましボーナス
               </div>
               <div className="text-xs text-slate-400">
-                間違えた友だち1人につき、発表者に +150点 のボーナスが入ります
+                間違えた友だち1人につき、発表者に +150点 のボーナスが入ります{roomState.settings.teacherEarnsPoints === false && '（※先生が発表者の場合は得点対象外）'}
               </div>
             </div>
             <input
@@ -253,7 +283,7 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {onEndGame && roomState.stage !== 'LOBBY' && roomState.stage !== 'GAME_OVER' && (
               <button
                 onClick={() => {
@@ -270,17 +300,32 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({
             )}
             <button
               onClick={() => {
-                if (confirm('結果を表示せずに、ゲームをやめて最初の画面にもどりますか？（スコアはリセットされます）')) {
+                if (confirm('ゲームをやり直してロビー画面（待機所）に戻りますか？\n（スコアはリセットされますが、部屋は解散されません）')) {
                   onResetGame();
                   onClose();
                 }
               }}
               id="modal-reset-game-btn"
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold border border-rose-500/40 flex items-center justify-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 flex items-center gap-1.5 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-              ゲームをやめる (最初へ)
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              ロビーへ戻る (スコアリセット)
             </button>
+            {onCloseRoom && (
+              <button
+                onClick={() => {
+                  if (confirm('メイン画面に戻りますか？\n先生がメイン画面に戻ると、この部屋（ロビー）は終了・解散され、生徒もメイン画面に戻ります。')) {
+                    onCloseRoom();
+                    onClose();
+                  }
+                }}
+                id="modal-close-room-btn"
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-100 text-xs font-bold border border-rose-500/40 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                部屋を解散してメイン画面へ
+              </button>
+            )}
           </div>
         </div>
       </div>

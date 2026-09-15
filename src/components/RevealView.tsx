@@ -49,6 +49,9 @@ export const RevealView: React.FC<RevealViewProps> = ({
 
   // My player outcome
   const isPresenter = Boolean(myPlayer && myPlayer.id === roomState.presenterId);
+  const isTeacherPresenter = Boolean(
+    isPresenter && myPlayer && (myPlayer.isTeacher || (roomState.hostId && myPlayer.id === roomState.hostId) || myPlayer.role === 'teacher')
+  );
   const myGuess = myPlayer?.currentGuess;
   const myGuessOption = category.options.find(o => o.id === myGuess);
   const myTimedOut = Boolean(myPlayer?.lastScoreBreakdown?.timedOut || (!isPresenter && !myGuess));
@@ -138,7 +141,9 @@ export const RevealView: React.FC<RevealViewProps> = ({
                   あなたの結果
                 </div>
                 <div className="text-lg sm:text-xl font-black text-white">
-                  {isPresenter ? (
+                  {isTeacherPresenter && roomState.settings.teacherEarnsPoints === false ? (
+                    <span className="text-amber-300">先生の発表（見守りモード・得点対象外）</span>
+                  ) : isPresenter ? (
                     <span>発表者ボーナス: +{hostBonusEarned}点</span>
                   ) : myTimedOut ? (
                     <span className="text-rose-400">時間切れ: 得点なし (0点)</span>
@@ -149,7 +154,9 @@ export const RevealView: React.FC<RevealViewProps> = ({
                   )}
                 </div>
                 <p className="text-xs sm:text-sm mt-0.5 opacity-90">
-                  {isPresenter ? (
+                  {isTeacherPresenter && roomState.settings.teacherEarnsPoints === false ? (
+                    `すきな${category.japaneseLabel || category.label}を発表しました！（先生の得点・ランキング参加はOFFのため0点のまま生徒だけの順位表になります）`
+                  ) : isPresenter ? (
                     `すきな${category.japaneseLabel || category.label}を発表して、${hostIncorrectCount}人の友だちをだませたよ！`
                   ) : myTimedOut ? (
                     `15秒以内に回答できませんでした。時間をすぎると得点がもらえません。次のラウンドは はやくボタンをおそう！`
@@ -167,7 +174,13 @@ export const RevealView: React.FC<RevealViewProps> = ({
                 合計スコア
               </div>
               <div className="text-2xl font-mono font-black text-white">
-                {myPlayer.score} <span className="text-xs text-slate-400 font-normal">点</span>
+                {isTeacherPresenter && roomState.settings.teacherEarnsPoints === false ? (
+                  <span className="text-amber-300 text-base font-bold">対象外</span>
+                ) : (
+                  <>
+                    {myPlayer.score} <span className="text-xs text-slate-400 font-normal">点</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

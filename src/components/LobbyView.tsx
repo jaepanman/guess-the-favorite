@@ -43,18 +43,30 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [isTeacherRole, setIsTeacherRole] = useState(false);
 
   const playersList: Player[] = roomState ? (Object.values(roomState.players) as Player[]) : [];
-  const existingTeacher = playersList.find(p => p.isTeacher || (roomState?.hostId && p.id === roomState.hostId));
+  const activeHost = roomState?.hostId && roomState.players[roomState.hostId] ? roomState.players[roomState.hostId] : undefined;
+  const existingTeacher = playersList.find(p => p.isTeacher || p.role === 'teacher' || (roomState?.hostId && p.id === roomState.hostId)) || activeHost;
+  const hasActiveRoom = Boolean(existingTeacher);
 
-  // If a teacher already exists in the room, automatically switch any selection to student
+  // If a teacher already exists in the room, automatically switch selection to student.
+  // If no teacher exists yet, default to teacher role so teacher can open the room.
   React.useEffect(() => {
     if (existingTeacher && isTeacherRole) {
       setIsTeacherRole(false);
+    } else if (!existingTeacher && !isTeacherRole && playersList.length === 0) {
+      setIsTeacherRole(true);
     }
-  }, [existingTeacher, isTeacherRole]);
+  }, [existingTeacher, playersList.length]);
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+
+    // Prevent student from entering an unhosted room
+    if (!hasActiveRoom && !isTeacherRole) {
+      alert('先生がまだ部屋を開いていません。\n先生が「発表者・先生」として部屋を開始するまでお待ちください。\n先生の方は「発表者・先生」を選んで部屋を開いてください。');
+      return;
+    }
+
     playSelectSound();
     localStorage.setItem('efl_name', name.trim());
     localStorage.setItem('efl_avatar', selectedAvatar);
@@ -193,12 +205,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
             {/* Role Selection */}
             <div className="pt-2 border-t border-white/10 space-y-2">
-              {existingTeacher ? (
+              {hasActiveRoom ? (
                 <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 flex items-start sm:items-center gap-2.5">
-                  <span className="text-xl">👩‍🏫</span>
+                  <span className="text-xl">{existingTeacher?.avatar || '👩‍🏫'}</span>
                   <div className="space-y-0.5">
                     <div className="font-bold">
-                      先生はすでに参加しています（{existingTeacher.avatar} {existingTeacher.name} 先生）
+                      先生が部屋を開いています（{existingTeacher?.avatar} {existingTeacher?.name} 先生）
                     </div>
                     <div className="text-[11px] text-amber-300/80">
                       先生（ホスト）がすでにいるため、あなたの役割は「🎓 生徒」になります。
@@ -206,10 +218,24 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-300 font-bold">
-                    ゲームでの役割（やくわり）:
-                  </span>
+                <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 text-xs text-indigo-200 flex items-start sm:items-center gap-2.5">
+                  <span className="text-xl">🔔</span>
+                  <div className="space-y-0.5">
+                    <div className="font-bold">
+                      先生が部屋を開くと、生徒が参加できるようになります
+                    </div>
+                    <div className="text-[11px] text-indigo-300/80">
+                      先生の方は下の「👑 発表者・先生」を選んで、部屋を開いてください。
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-300 font-bold">
+                  ゲームでの役割（やくわり）:
+                </span>
+                {!hasActiveRoom && (
                   <button
                     type="button"
                     id="toggle-teacher-role-btn"
@@ -218,8 +244,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   >
                     {isTeacherRole ? '生徒にする' : '発表者・先生にする'}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
@@ -227,7 +253,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   id="role-student-btn"
                   onClick={() => setIsTeacherRole(false)}
                   className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
-                    !isTeacherRole || Boolean(existingTeacher)
+                    !isTeacherRole || hasActiveRoom
                       ? 'border-indigo-500 bg-indigo-500/20 ring-1 ring-indigo-500 text-white'
                       : 'border-white/10 bg-slate-800/40 hover:bg-slate-800/80 text-slate-400'
                   }`}
@@ -235,14 +261,16 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   <div className="text-sm font-black flex items-center gap-1.5 text-slate-100">
                     <span className="text-lg">🎓</span>
                     <span>生徒（あてる人）</span>
-                    {existingTeacher && (
+                    {hasActiveRoom && (
                       <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
                         自動選択
                       </span>
                     )}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1 leading-tight">
-                    英語を聞いて、友だちのすきなものを当てよう！
+                    {!hasActiveRoom
+                      ? '※先生が部屋を開くまで待機となります。'
+                      : '英語を聞いて、友だちのすきなものを当てよう！'}
                   </div>
                 </button>
 
@@ -250,15 +278,15 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   type="button"
                   id="role-teacher-btn"
                   onClick={() => {
-                    if (existingTeacher) {
+                    if (hasActiveRoom) {
                       setIsTeacherRole(false);
                     } else {
                       setIsTeacherRole(true);
                     }
                   }}
-                  disabled={Boolean(existingTeacher)}
+                  disabled={hasActiveRoom}
                   className={`p-3 rounded-2xl border text-left transition ${
-                    existingTeacher
+                    hasActiveRoom
                       ? 'border-white/5 bg-slate-800/20 text-slate-500 opacity-60 cursor-not-allowed'
                       : isTeacherRole
                       ? 'border-amber-500 bg-amber-500/20 ring-1 ring-amber-500 text-white cursor-pointer'
@@ -268,30 +296,52 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   <div className="text-sm font-black flex items-center gap-1.5 text-amber-300">
                     <span className="text-lg">👑</span>
                     <span>発表者・先生</span>
-                    {existingTeacher && (
+                    {hasActiveRoom && (
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-normal">
                         参加中
                       </span>
                     )}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1 leading-tight">
-                    {existingTeacher
-                      ? `${existingTeacher.name}先生が参加しているため選べません。`
-                      : 'すきなものをえらんだり、ゲームをスタートする人だよ。'}
+                    {hasActiveRoom
+                      ? `${existingTeacher?.name || ''}先生が参加しているため選べません。`
+                      : '部屋を開いて、ゲームの進行や出題を管理します。'}
                   </div>
                 </button>
               </div>
             </div>
 
             {/* Submit Join */}
-            <button
-              type="submit"
-              id="join-game-submit-btn"
-              disabled={!name.trim()}
-              className="w-full py-4 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base tracking-wide shadow-lg shadow-indigo-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              ゲームの部屋に入る！ 🚀
-            </button>
+            {!hasActiveRoom && !isTeacherRole ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  id="join-game-submit-btn"
+                  disabled
+                  className="w-full py-4 px-6 rounded-2xl bg-slate-800 border border-white/10 text-slate-400 font-bold text-sm text-center cursor-not-allowed opacity-75"
+                >
+                  ⏳ 先生が部屋を開くのをお待ちください…
+                </button>
+                <p className="text-center text-xs text-amber-300 font-medium">
+                  先生の方は、上の「👑 発表者・先生」を選択して部屋を開いてください。
+                </p>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                id="join-game-submit-btn"
+                disabled={!name.trim()}
+                className={`w-full py-4 px-6 rounded-2xl font-black text-base tracking-wide shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                  isTeacherRole && !hasActiveRoom
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/25'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25'
+                }`}
+              >
+                {isTeacherRole && !hasActiveRoom
+                  ? '先生として部屋を開く（ロビー開始）🚀'
+                  : 'ゲームの部屋に入る！ 🚀'}
+              </button>
+            )}
           </form>
         </div>
       ) : (
@@ -321,13 +371,27 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {onLeaveRoom && (
                   <button
-                    onClick={onLeaveRoom}
+                    onClick={() => {
+                      if (isHost) {
+                        if (window.confirm('メイン画面に戻りますか？\n先生がメイン画面に戻ると、この部屋（ロビー）は終了・解散され、生徒もメイン画面に戻ります。')) {
+                          onLeaveRoom();
+                        }
+                      } else {
+                        if (window.confirm('部屋から退出してメイン画面に戻りますか？')) {
+                          onLeaveRoom();
+                        }
+                      }
+                    }}
                     id="leave-room-btn"
-                    title="名前やアイコンを変える"
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-white/10 transition cursor-pointer"
+                    title={isHost ? 'メイン画面へ戻る（部屋を閉じる）' : 'メイン画面へ戻る（退出）'}
+                    className={`inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-bold border transition cursor-pointer ${
+                      isHost
+                        ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-100 border-rose-500/40'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/10'
+                    }`}
                   >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>名前・アイコン変更</span>
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span>{isHost ? 'メイン画面へ (部屋を閉じる)' : 'メイン画面へ (退出)'}</span>
                   </button>
                 )}
                 {canManageLobby ? (
@@ -363,6 +427,29 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     </div>
                     <div className="text-xs text-slate-200 mt-0.5">
                       生徒を発表者に指名しても、先生の権限は保持されます。いつでも「発表者に復帰」や「別の生徒を指名」が可能です。
+                    </div>
+                    {/* Quick Toggle for Teacher Points */}
+                    <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-amber-200">
+                        🏆 先生の得点・順位表:
+                      </span>
+                      <button
+                        type="button"
+                        id="lobby-toggle-teacher-points-btn"
+                        onClick={() => onUpdateSettings({ teacherEarnsPoints: !roomState?.settings.teacherEarnsPoints })}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer border ${
+                          roomState?.settings.teacherEarnsPoints
+                            ? 'bg-emerald-500/25 border-emerald-500/50 text-emerald-200 hover:bg-emerald-500/35'
+                            : 'bg-amber-500/25 border-amber-500/50 text-amber-200 hover:bg-amber-500/35'
+                        }`}
+                      >
+                        {roomState?.settings.teacherEarnsPoints ? 'ON（得点あり）' : 'OFF（先生は得点なし・生徒のみ順位）'}
+                      </button>
+                      <span className="text-[11px] text-slate-300">
+                        {roomState?.settings.teacherEarnsPoints
+                          ? '※ 先生も得点し順位表に載ります'
+                          : '※ 先生が全問発表しても0点のまま順位表から除外されます'}
+                      </span>
                     </div>
                   </div>
                 </div>

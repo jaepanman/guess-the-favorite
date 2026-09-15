@@ -73,6 +73,7 @@ export interface GameSettings {
   hostCompensationPerWrong: number;
   baseCorrectPoints: number;
   maxSpeedBonus: number;
+  teacherEarnsPoints: boolean;
 }
 
 export interface GameRoomState {
@@ -108,12 +109,15 @@ export type ClientMessage =
   | { type: 'REMOVE_DEMO_BOTS'; roomCode: string }
   | { type: 'END_GAME'; roomCode: string }
   | { type: 'RESET_GAME'; roomCode: string }
+  | { type: 'LEAVE_ROOM'; roomCode: string; playerId: string }
+  | { type: 'CLOSE_ROOM'; roomCode: string }
   | { type: 'PING' };
 
 export type ServerMessage =
   | { type: 'ROOM_STATE'; state: GameRoomState }
   | { type: 'JOIN_SUCCESS'; playerId: string; state: GameRoomState }
   | { type: 'ERROR'; message: string }
+  | { type: 'ROOM_CLOSED'; message: string }
   | { type: 'PONG' }
   | { type: 'NEW_ROUND_NOTIFICATION'; presenterName: string; categoryLabel: string }
   | { type: 'TIMER_TICK'; remainingMs: number };

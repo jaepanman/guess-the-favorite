@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles, RotateCcw, Shuffle, UserCheck } from 'lucide-react';
+import { Volume2, VolumeX, Users, Award, Crown, Copy, Check, Settings, Sparkles, RotateCcw, Shuffle, UserCheck, LogOut } from 'lucide-react';
 import { GameRoomState, Player } from '../types';
 import { speakEnglishPhrase } from '../utils/soundEffects';
 
@@ -8,6 +8,7 @@ interface NavbarProps {
   myPlayer: Player | undefined;
   onOpenSettings?: () => void;
   onResetGame?: () => void;
+  onLeaveRoom?: () => void;
   onTakeBackPresenter?: () => void;
   onPickRandomPresenter?: () => void;
   isLiveConnected?: boolean;
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   myPlayer,
   onOpenSettings,
   onResetGame,
+  onLeaveRoom,
   onTakeBackPresenter,
   onPickRandomPresenter,
   isLiveConnected,
@@ -253,6 +255,33 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Settings className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Return to Main Menu / Close Room Button */}
+          {myPlayer && onLeaveRoom && (
+            <button
+              onClick={() => {
+                if (isHost) {
+                  if (window.confirm('メイン画面に戻りますか？\n先生がメイン画面に戻ると、この部屋（ロビー）は終了・解散され、生徒もメイン画面に戻ります。')) {
+                    onLeaveRoom();
+                  }
+                } else {
+                  if (window.confirm('メイン画面に戻りますか？（部屋から退出します）')) {
+                    onLeaveRoom();
+                  }
+                }
+              }}
+              id="navbar-leave-room-btn"
+              title={isHost ? 'メイン画面へ戻る（部屋を閉じる）' : 'メイン画面へ戻る（退出）'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                isHost
+                  ? 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/40 text-rose-300 hover:text-rose-100'
+                  : 'bg-slate-800/60 hover:bg-slate-800 border-white/10 text-slate-300 hover:text-white'
+              }`}
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden md:inline">{isHost ? '部屋を閉じる' : '退出'}</span>
             </button>
           )}
         </div>

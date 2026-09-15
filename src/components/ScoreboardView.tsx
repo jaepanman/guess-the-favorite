@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Trophy, TrendingUp, TrendingDown, Minus, Crown, ArrowRight, Shuffle, Target, Eye, EyeOff, Flag, RotateCcw } from 'lucide-react';
-import { GameRoomState, Player, CategoryId } from '../types';
+import { GameRoomState, Player, CategoryId, GameSettings } from '../types';
 import { CATEGORY_ORDER, GAME_CATEGORIES, AVAILABLE_COLORS } from '../gameData';
 import { playSelectSound } from '../utils/soundEffects';
 
@@ -14,6 +14,7 @@ interface ScoreboardViewProps {
   onTakeBackPresenter?: () => void;
   onEndGame?: () => void;
   onResetGame?: () => void;
+  onUpdateSettings?: (settings: Partial<GameSettings>) => void;
 }
 
 export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
@@ -25,8 +26,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   onTakeBackPresenter,
   onEndGame,
   onResetGame,
+  onUpdateSettings,
 }) => {
-  const allPlayers: Player[] = (Object.values(roomState.players) as Player[]).sort((a, b) => b.score - a.score);
+  const isTeacherPlayer = (p: Player) => Boolean(p.isTeacher || (roomState.hostId && p.id === roomState.hostId) || p.role === 'teacher');
+  const allPlayers: Player[] = (Object.values(roomState.players) as Player[])
+    .filter(p => roomState.settings.teacherEarnsPoints !== false || !isTeacherPlayer(p))
+    .sort((a, b) => b.score - a.score);
+
   const nextRoundIndex = roomState.roundIndex + 1;
   const isFinalRound = nextRoundIndex >= roomState.categories.length;
   const nextCatId = !isFinalRound ? roomState.categories[nextRoundIndex % roomState.categories.length] : null;
@@ -41,7 +47,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
   const [autoFollow, setAutoFollow] = useState<boolean>(true);
   const myRowRef = useRef<HTMLDivElement | null>(null);
 
-  const myRank = myPlayer ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1 : 0;
+  const isMyPlayerTeacher = Boolean(myPlayer && isTeacherPlayer(myPlayer));
+  const myRank = myPlayer && (!isMyPlayerTeacher || roomState.settings.teacherEarnsPoints)
+    ? allPlayers.findIndex(p => p.id === myPlayer.id) + 1
+    : 0;
 
   useEffect(() => {
     if (!autoFollow || !myPlayer) return;
@@ -83,6 +92,39 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
           せいかい＆スピードで点数アップ！ランキングの上位を目指そう！
         </p>
       </div>
+
+      {/* Teacher Points Notice & Quick Toggle */}
+      {isHost && (
+        <div className="bg-slate-900/60 rounded-2xl border border-amber-500/30 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">👑</span>
+            <div>
+              <div className="font-bold text-amber-200">
+                先生の得点・順位表設定: {roomState.settings.teacherEarnsPoints ? 'ON（得点あり）' : 'OFF（先生は得点なし・生徒のみ）'}
+              </div>
+              <div className="text-slate-400 text-[11px] mt-0.5">
+                {roomState.settings.teacherEarnsPoints
+                  ? '先生もポイントを獲得し、順位表や表彰台に掲載されます。'
+                  : '先生が発表者を続けても得点は0点となり、生徒だけのランキングが表示されています。'}
+              </div>
+            </div>
+          </div>
+          {onUpdateSettings && (
+            <button
+              type="button"
+              id="scoreboard-toggle-teacher-points-btn"
+              onClick={() => onUpdateSettings({ teacherEarnsPoints: !roomState.settings.teacherEarnsPoints })}
+              className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition cursor-pointer text-xs shrink-0 border ${
+                roomState.settings.teacherEarnsPoints
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40'
+              }`}
+            >
+              {roomState.settings.teacherEarnsPoints ? '先生の得点をOFFにする' : '先生の得点をONにする'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Top 3 Podium (if >= 2 players) */}
       {allPlayers.length >= 2 && (
@@ -151,9 +193,15 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({
               クラスぜんいんの順位 ({allPlayers.length}人)
             </span>
             {myPlayer && (
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs border border-indigo-500/30">
-                あなた: {myRank}位
-              </span>
+              isMyPlayerTeacher && roomState.settings.teacherEarnsPoints === false ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-xs border border-amber-500/30">
+                  👑 先生（見守り・ランキング対象外）
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs border border-indigo-500/30">
+                  あなた: {myRank}位
+                </span>
+              )
             )}
           </div>
 
