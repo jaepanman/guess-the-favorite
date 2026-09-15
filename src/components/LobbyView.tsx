@@ -758,18 +758,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   </div>
                 )}
               </form>
-
-              {/* Discreet Teacher Link at Bottom */}
-              <div className="mt-8 pt-4 border-t border-white/10 text-center">
-                <button
-                  type="button"
-                  id="go-to-teacher-portal-link"
-                  onClick={() => onSwitchRouteMode('teacher')}
-                  className="text-xs text-slate-400 hover:text-indigo-400 transition cursor-pointer"
-                >
-                  👩‍🏫 先生の方はこちら（先生専用セットアップ画面 /#/teacher）
-                </button>
-              </div>
             </div>
           )}
         </div>

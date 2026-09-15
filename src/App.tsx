@@ -111,27 +111,6 @@ export default function App() {
         onOpenServerModal={() => setIsServerModalOpen(true)}
       />
 
-      {/* Route Mode Info Banner (Only in Lobby and before joining) */}
-      {!myPlayer && (
-        <div className={`px-4 py-1.5 text-xs font-bold text-center flex items-center justify-center gap-2 border-b ${
-          routeMode === 'teacher'
-            ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-            : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
-        }`}>
-          <span>
-            {routeMode === 'teacher'
-              ? '👑 先生専用セットアップページ (/#/teacher) を表示中'
-              : '🎒 生徒用参加画面 (/#/student) を表示中'}
-          </span>
-          <button
-            onClick={() => handleSwitchRouteMode(routeMode === 'teacher' ? 'student' : 'teacher')}
-            className="underline font-bold text-white hover:text-indigo-200 cursor-pointer ml-1"
-          >
-            {routeMode === 'teacher' ? '生徒用画面へ' : '先生用画面へ'} &rarr;
-          </button>
-        </div>
-      )}
-
       {/* Connection State Alert */}
       {!isConnected && (
         <div className="bg-amber-500/90 text-amber-950 px-4 py-2 text-xs font-black uppercase tracking-wider text-center flex items-center justify-center gap-2 border-b border-amber-400/30">
